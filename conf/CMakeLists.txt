@@ -1,6 +1,6 @@
 
 # 在上级作用域设置配置模块源码列表
-file(GLOB CONFIG_SRC *.c)
+file(GLOB CONFIG_SRC *.c *.cpp)
 set(CONFIG_MODULE_SRC ${CONFIG_SRC} PARENT_SCOPE)
 
 # 添加包含目录
