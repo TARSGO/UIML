@@ -246,7 +246,8 @@ BreakLoop:
 }
 
 size_t UimlYamlParse(const char* input, UimlYamlNode** output) {
-    return UimlParseYamlDictIndent(input, output, 0);
+    *output = CreateYamlNode();
+    return UimlParseYamlDictIndent(input, &((*output)->Children), 0);
 }
 
 UimlYamlNode* UimlYamlGetValue(UimlYamlNode* input, const char* childName) {

@@ -29,7 +29,7 @@ void TestYamlParser() {
     UimlYamlNode* here;
 
     UimlYamlParse(yaml_simple, &here);
-    auto pChassis = UimlYamlGetValue(here, "chassis");
+    auto pChassis = UimlYamlGetValue(here->Children, "chassis");
     auto pInfo = UimlYamlGetValue(pChassis->Children, "info");
     auto pOffsetX = UimlYamlGetValue(pInfo->Children, "wheel-radius");
 
