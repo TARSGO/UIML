@@ -53,7 +53,7 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
         char * strValueRef = nullptr;
         float decimalPart;
     };
-    float decimalCoeff = 0.1f;
+    float decimalCoeff = 1.0f;
 
     auto gotoNextElem = [&](){
         switch (nextElem) {
@@ -228,7 +228,7 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
                     keyNameLength = 0;
                     strValueBegin = 0;
                     strValueRef = nullptr;
-                    decimalCoeff = 0.1f;
+                    decimalCoeff = 1.0f;
                     lasti = i;
                     break;
                 } else if (c != ' ') {
