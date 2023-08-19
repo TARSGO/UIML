@@ -5,7 +5,7 @@
 uint32_t Hasher_UIML32(const uint8_t *data, size_t length)
 {
 	uint32_t h = 0;  
-	uint16_t strLength = length, alignedLen = (strLength + sizeof(uint32_t) - 1)/sizeof(uint32_t);
+	uint16_t strLength = length, alignedLen = strLength / sizeof(uint32_t);
 	for(uint16_t i = 0; i < alignedLen; ++i)  
 		h = (h << 5) - h + ((uint32_t*)data)[i]; 
 	for(uint16_t i = alignedLen << 2; i < strLength; ++i)
