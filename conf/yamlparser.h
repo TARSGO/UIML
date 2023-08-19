@@ -15,11 +15,11 @@ struct UimlYamlNode {
     };
 };
 
-enum UimlYamlParseStatus {
-    UimlYamlInvalidIndentation = -1,
-    UimlYamlInvalidKey = -2,
-    UimlYamlInvalidValue = -3,
-};
+// enum UimlYamlParseStatus {
+//     UimlYamlInvalidIndentation = -1,
+//     UimlYamlInvalidKey = -2,
+//     UimlYamlInvalidValue = -3,
+// };
 
 #ifdef __cplusplus
 extern "C" {

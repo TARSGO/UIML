@@ -12,8 +12,9 @@ test2:
   biz:
     wow: "okay"
   bits:
-    p: "nope"
-    i :"meh"
+    p: 3000
+    i:0.1
+    d:3.0
 )";
 
 void TestYamlParser() {

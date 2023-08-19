@@ -9,6 +9,9 @@
 一个键只能占用一行。
 元素节点不保存其值类型，读取者读取时必须自行选取与解析器输出行为一致的类型。
 
+只支持小数形式的浮点数（123.456），不支持指数形式。
+如数字被写作浮点形式，即使它的小数部分在当前精度下会变为0，值也会被按float存储。
+
 键名不得包含空格或者冒号（其他任意字符均可）。
 
 */
@@ -16,43 +19,10 @@
 #include <string.h>
 #include "yamlparser.h"
 #include "hasher.h"
+extern "C" {
 #include "vector.h"
+}
 #include "cmsis_os.h"
-
-// RAII 守护堆分配
-class AllocGuard {
-public:
-    AllocGuard(void** p) : guardedPtr(p) {};
-    ~AllocGuard() { if (guardedPtr != nullptr) vPortFree(*guardedPtr); }
-    void cancel() { guardedPtr = nullptr; }
-private:
-    void** guardedPtr;
-};
-
-// RAII 守护输出节点
-class UimlYamlNodeGuard {
-public:
-    UimlYamlNodeGuard(UimlYamlNode** p) : guardedNode(p) {};
-    ~UimlYamlNodeGuard() {
-        if (guardedNode != nullptr) {
-            if ((*guardedNode)->Children != NULL) {
-                UimlYamlNodeGuard destructChildren(&(*guardedNode)->Children);
-            }
-            if ((*guardedNode)->Next != NULL) {
-                auto chain = (*guardedNode)->Next;
-                do {
-                    auto nextnext = chain->Next;
-                    UimlYamlNodeGuard destructChain(&chain);
-                    chain = nextnext;
-                } while (chain != NULL);
-            }
-            vPortFree(guardedNode);
-        }
-    }
-    void cancel() { guardedNode = nullptr; }
-private:
-    UimlYamlNode** guardedNode;
-};
 
 static UimlYamlNode* CreateYamlNode() {
     UimlYamlNode* ret = (UimlYamlNode*)pvPortMalloc(sizeof(UimlYamlNode));
@@ -68,18 +38,22 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
     UimlYamlNode* out = nullptr, *current = nullptr;
     auto inputLength = strlen(input);
 
-    enum { SkipWhitespace, Key, Colon, TryValue, SkipToNewLine, ValueString, ValueNumber, ValueDict } state = SkipWhitespace;
+    enum { SkipWhitespace, Key, Colon, TryValue, SkipToNewLine, ValueString, ValueNumberBegin, ValueNumberInteger, ValueNumberDecimal, ValueDict } state = SkipWhitespace;
     enum { NextKey, NextColon, NextValue, NextLine } nextElem = NextKey;
-    enum { Undetermined, vtU32, vtI32, vtF32, vtString, vtDict } valueType = Undetermined;
+    enum { Undetermined, vtU32, vtNeg32, vtF32, vtNegF32, vtString, vtDict } valueType = Undetermined;
     int spacesToSkip = 0;
     bool decrementSpacesToSkip = true;
     const char * keyNameRef = nullptr;
     size_t keyNameLength = 0;
-    const char * strValueBegin = nullptr;
-    char * strValueRef = nullptr;
-
-    AllocGuard strValueGuard((void**)&strValueRef);
-    UimlYamlNodeGuard outNodeGuard(&out);
+    union {
+        const char * strValueBegin = nullptr;
+        uint32_t integerPart;
+    };
+    union {
+        char * strValueRef = nullptr;
+        float decimalPart;
+    };
+    float decimalCoeff = 0.1f;
 
     auto gotoNextElem = [&](){
         switch (nextElem) {
@@ -97,7 +71,6 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
         c = input[i];
         switch (state) {
             case SkipWhitespace:
-                if (!strncmp("  bits", input + i, 6)) __debugbreak();
                 if (c == '\n') {
                     if (nextElem == NextValue) {
                         state = ValueDict;
@@ -111,11 +84,11 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
                     } else if (spacesToSkip == 2) { // 少一格缩进，回退
                         goto BreakLoop;
                     } else {
-                        return UimlYamlParseStatus::UimlYamlInvalidIndentation;
+                        state = SkipToNewLine;
                     }
                     gotoNextElem();
                 } else if (spacesToSkip < 0) {
-                    return UimlYamlParseStatus::UimlYamlInvalidIndentation;
+                    state = SkipToNewLine;
                 } else {
                     if (decrementSpacesToSkip) spacesToSkip--;
                 }
@@ -144,17 +117,17 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
             
             case Colon:
                 if (c != ':') {
-                    return UimlYamlParseStatus::UimlYamlInvalidKey;
+                    state = SkipToNewLine;
                 }
                 state = SkipWhitespace;
                 break;
 
             case TryValue:
                 if (c == '"') state = ValueString;
-                else if ((c > '0' && c < '9') || c == '-') { state = ValueNumber; i--; }
+                else if ((c >= '0' && c <= '9') || c == '-') { state = ValueNumberBegin; i--; }
                 else if (c == ' ') state = SkipWhitespace;
                 else if (c == '\n') state = ValueDict; 
-                else return UimlYamlParseStatus::UimlYamlInvalidValue;
+                else state = SkipToNewLine;
                 break;
 
             case ValueString:
@@ -170,15 +143,56 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
                 }
                 break;
 
-            case ValueNumber:
+            case ValueNumberBegin:
+                integerPart = 0;
+                decimalPart = 0.0f;
+                if (c == '-') { valueType = vtNeg32; } // 拿Neg32表示是负数
+                else i--; // 没有负号就回退一位，保证下一位读出来是数字
+                state = ValueNumberInteger; // 直接交给专门处理数字的部分处理
+                valueType = vtU32;
+                break;
+
+            case ValueNumberInteger:
+                if (c >= '0' && c <= '9') {
+                    integerPart *= 10;
+                    integerPart += (c - '0');
+                } else if (c == '.') {
+                    state = ValueNumberDecimal; // 去处理小数
+                    valueType = vtF32;
+                } else if (c == ' ' || c == '\n') {
+                    i--;
+                    state = SkipToNewLine; // 尝试结束
+                } else {
+                    // return UimlYamlInvalidValue;
+                    state = SkipToNewLine;
+                }
+                break;
+
+            case ValueNumberDecimal:
+                if (c >= '0' && c <= '9') {
+                    decimalCoeff *= 0.1f;
+                    decimalPart += decimalCoeff * (c - '0');
+                } else if (c == ' ' || c == '\n') {
+                    i--;
+                    state = SkipToNewLine; // 尝试结束
+                } else {
+                    // return UimlYamlInvalidValue;
+                    state = SkipToNewLine;
+                }
                 break;
 
             case ValueDict:
+            {
                 valueType = vtDict;
-                i += UimlParseYamlDictIndent(input + i, &current->Children, indentSpace + 2);
+                auto dictResult = UimlParseYamlDictIndent(input + i, &current->Children, indentSpace + 2);
+                if ((int)dictResult < 0) { // 如果子级出错，递归退出
+                    return dictResult;
+                }
+                i += dictResult;
                 i--; // 加上lasti之后会指向\n，向前退一个字节，确保可以正确结束行
                 state = SkipToNewLine; // 复用这部分代码做好下一个元素的准备
                 break;
+            }
 
             case SkipToNewLine:
                 if (c == '\n') { // 一行结束
@@ -188,11 +202,17 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
                     switch (valueType) {
                         case Undetermined: // 没有值也没有Key的空行
                             break;
-                        case vtU32:
+                        case vtU32: // 没有负号的整数
+                            current->U32 = integerPart;
                             break;
-                        case vtI32:
+                        case vtNeg32: // 负的整数
+                            current->I32 = -(int32_t)integerPart;
                             break;
-                        case vtF32:
+                        case vtF32: // 没有负号的小数
+                            current->F32 = integerPart + decimalPart;
+                            break;
+                        case vtNegF32: // 负的小数
+                            current->F32 = -(integerPart + decimalPart);
                             break;
                         case vtString:
                             current->Str = strValueRef;
@@ -207,10 +227,12 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
                     decrementSpacesToSkip = true;
                     keyNameLength = 0;
                     strValueBegin = 0;
+                    strValueRef = nullptr;
+                    decimalCoeff = 0.1f;
                     lasti = i;
                     break;
                 } else if (c != ' ') {
-                    return UimlYamlParseStatus::UimlYamlInvalidValue;
+                    // return UimlYamlInvalidValue;
                 }
                 break;
         }
@@ -219,8 +241,6 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
 BreakLoop:
 
     *output = out;
-    strValueGuard.cancel();
-    outNodeGuard.cancel();
 
     return lasti == 0 ? i : lasti;
 }
