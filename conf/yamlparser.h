@@ -25,8 +25,9 @@ struct UimlYamlNode {
 extern "C" {
 #endif
 
-size_t UimlParseYaml(const char* input, struct UimlYamlNode** output);
+size_t UimlYamlParse(const char* input, struct UimlYamlNode** output);
 
+struct UimlYamlNode* UimlYamlGetValue(struct UimlYamlNode* input, const char* childName);
 
 #ifdef __cplusplus
 } // extern "C" {

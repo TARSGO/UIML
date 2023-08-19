@@ -245,6 +245,21 @@ BreakLoop:
     return lasti == 0 ? i : lasti;
 }
 
-size_t UimlParseYaml(const char* input, UimlYamlNode** output) {
+size_t UimlYamlParse(const char* input, UimlYamlNode** output) {
     return UimlParseYamlDictIndent(input, output, 0);
+}
+
+UimlYamlNode* UimlYamlGetValue(UimlYamlNode* input, const char* childName) {
+    auto nameLength = strlen(childName);
+    auto nameHash = Hasher_UIML32((uint8_t*)childName, nameLength);
+    UimlYamlNode* ret = input;
+    
+    while (ret != NULL) {
+        if (ret->NameHash == nameHash && !strncmp(ret->NameRef, childName, nameLength)) {
+            return ret;
+        }
+        ret = ret->Next;
+    }
+
+    return NULL;
 }
