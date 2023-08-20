@@ -15,12 +15,6 @@ struct UimlYamlNode {
     };
 };
 
-// enum UimlYamlParseStatus {
-//     UimlYamlInvalidIndentation = -1,
-//     UimlYamlInvalidKey = -2,
-//     UimlYamlInvalidValue = -3,
-// };
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -28,6 +22,7 @@ extern "C" {
 size_t UimlYamlParse(const char* input, struct UimlYamlNode** output);
 
 struct UimlYamlNode* UimlYamlGetValue(struct UimlYamlNode* input, const char* childName);
+struct UimlYamlNode* UimlYamlGetValueByPath(struct UimlYamlNode* input, const char* path);
 
 #ifdef __cplusplus
 } // extern "C" {

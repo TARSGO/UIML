@@ -35,6 +35,7 @@ void TestYamlParser() {
 
 
     std::cerr << "chassis.info.wheel-radius: " << pOffsetX->F32 << std::endl;
+    std::cerr << "chassis.info.wheel-radius: " << UimlYamlGetValueByPath(here, "/chassis/info/wheel-radius")->F32 << std::endl;
 
     std::cerr << "YAML test didn't crash." << std::endl;
 }

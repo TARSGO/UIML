@@ -1,6 +1,6 @@
 
 /**
-实现一个最小化的、类YAML的文本解释器。
+实现一个最小化的、类YAML的，在C板上消耗最小化资源的文本解析器。
 
 限制：
 只能使用最基础的数据类型：int32, uint32, float, 字符串；字典。
@@ -14,6 +14,8 @@
 
 键名不得包含空格或者冒号（其他任意字符均可）。
 
+没有错误返回机制，因为将Children（字典）与其他32位长度的类型union起来时，已无法自动释放资源。
+检测到未预期的字符时，会直接试图跳转至结尾状态。
 */
 
 #include <string.h>
@@ -263,4 +265,34 @@ UimlYamlNode* UimlYamlGetValue(UimlYamlNode* input, const char* childName) {
     }
 
     return NULL;
+}
+
+UimlYamlNode* UimlYamlGetValueByPath(UimlYamlNode* input, const char* path) {
+    const char *begin = path, *end;
+    UimlYamlNode *ret = input;
+
+    do {
+        end = strchr(begin, '/');
+        if (end > begin || end == NULL) {
+            auto nameLength = (end == NULL) ? strlen(begin) : (end - begin);
+            auto nameHash = Hasher_UIML32((uint8_t*)begin, nameLength);
+            
+            ret = ret->Children;
+
+            while (ret != NULL) {
+                if (ret->NameHash == nameHash && !strncmp(ret->NameRef, begin, nameLength)) {
+                    goto Found; // 跳出内循环并跳过错误情况处理
+                }
+                ret = ret->Next;
+            }
+
+            return NULL;
+Found:
+            begin = end + 1;
+        } else if (end == begin) {
+            begin = end + 1; // 没用的单/，只跳过
+        }
+    } while (end != NULL);
+
+    return ret;
 }
