@@ -71,6 +71,7 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
     size_t i, lasti = 0;
     for (i = 0; i < inputLength; i++) {
         c = input[i];
+        if (c == '#' && state != ValueString) state = SkipToNewLine; // 注释起始
         switch (state) {
             case SkipWhitespace:
                 if (c == '\n') {
@@ -148,10 +149,10 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
             case ValueNumberBegin:
                 integerPart = 0;
                 decimalPart = 0.0f;
+                valueType = vtU32;
                 if (c == '-') { valueType = vtNeg32; } // 拿Neg32表示是负数
                 else i--; // 没有负号就回退一位，保证下一位读出来是数字
                 state = ValueNumberInteger; // 直接交给专门处理数字的部分处理
-                valueType = vtU32;
                 break;
 
             case ValueNumberInteger:
@@ -160,7 +161,7 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
                     integerPart += (c - '0');
                 } else if (c == '.') {
                     state = ValueNumberDecimal; // 去处理小数
-                    valueType = vtF32;
+                    valueType = (valueType == vtNeg32) ? vtNegF32 : vtF32;
                 } else if (c == ' ' || c == '\n') {
                     i--;
                     state = SkipToNewLine; // 尝试结束
