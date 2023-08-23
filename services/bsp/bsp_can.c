@@ -211,11 +211,11 @@ bool BSP_CAN_SetBufCallback(const char* name, SoftBusFrame* frame, void* bindDat
 	if(!Bus_CheckMapKeys(frame, {"can-x", "id", "pos", "len", "data"}))
 		return false;
 	
-	uint8_t canX = *(uint8_t*)Bus_GetMapValue(frame, "can-x");
-	uint16_t frameID = *(uint16_t*)Bus_GetMapValue(frame, "id");
-	uint8_t startIndex = *(uint8_t*)Bus_GetMapValue(frame, "pos");
-	uint8_t length = *(uint8_t*)Bus_GetMapValue(frame, "len");
-	uint8_t* data = (uint8_t*)Bus_GetMapValue(frame, "data");
+	uint8_t canX = Bus_GetMapValue(frame, "can-x").U8;
+	uint16_t frameID = Bus_GetMapValue(frame, "id").U16;
+	uint8_t startIndex = Bus_GetMapValue(frame, "pos").U8;
+	uint8_t length = Bus_GetMapValue(frame, "len").U8;
+	uint8_t* data = (uint8_t*)Bus_GetMapValue(frame, "data").Ptr;
 	
 	for(uint8_t i = 0; i < canService.bufferNum; i++)
 	{
@@ -234,9 +234,9 @@ bool BSP_CAN_SendOnceCallback(const char* name, SoftBusFrame* frame, void* bindD
 	if(!Bus_CheckMapKeys(frame, {"can-x", "id", "data"}))
 		return false;
 
-	uint8_t canX = *(uint8_t*)Bus_GetMapValue(frame, "can-x");
-	uint16_t frameID = *(uint16_t*)Bus_GetMapValue(frame, "id");
-	uint8_t* data = (uint8_t*)Bus_GetMapValue(frame, "data");
+	uint8_t canX = Bus_GetMapValue(frame, "can-x").U8;
+	uint16_t frameID = Bus_GetMapValue(frame, "id").U16;
+	uint8_t* data = (uint8_t*)Bus_GetMapValue(frame, "data").Ptr;
 
 	for(uint8_t i = 0; i < canService.canNum; i++)
 	{

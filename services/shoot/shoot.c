@@ -128,17 +128,17 @@ bool Shooter_SettingCallback(const char* name, SoftBusFrame* frame, void* bindDa
 	Shooter *shooter = (Shooter*)bindData ;
 	if(Bus_IsMapKeyExist(frame,"fric-speed"))
 	{
-		shooter->fricSpeed = *(float*)Bus_GetMapValue(frame,"fric-speed");
+		shooter->fricSpeed = Bus_GetMapValue(frame,"fric-speed").F32;
 	}
 
 	if(Bus_IsMapKeyExist(frame,"trigger-angle"))
 	{
-		shooter->triggerAngle = *(float*)Bus_GetMapValue(frame,"trigger-angle");
+		shooter->triggerAngle = Bus_GetMapValue(frame,"trigger-angle").F32;
 	}
 
 	if(Bus_IsMapKeyExist(frame,"fric-enable"))
 	{
-		shooter->fricEnable = *(bool*)Bus_GetMapValue(frame,"fric-enable");
+		shooter->fricEnable = Bus_GetMapValue(frame,"fric-enable").Bool;
 		if(shooter->fricEnable == false)
 		{
 			shooter->fricMotors[0]->setTarget(shooter->fricMotors[0],0);
@@ -157,8 +157,8 @@ bool Shoot_ChangeModeCallback(const char* name, SoftBusFrame* frame, void* bindD
 	Shooter *shooter = (Shooter*)bindData;
 	if(Bus_IsMapKeyExist(frame,"mode"))
 	{
-		char* mode = (char*)Bus_GetMapValue(frame,"mode");
-		if(!strcmp(mode,"once") && shooter->mode == SHOOTER_MODE_IDLE)  //空闲时才允许修改模式
+		const char* mode = Bus_GetMapValue(frame,"mode").Str;
+		if(!strcmp(mode, "once") && shooter->mode == SHOOTER_MODE_IDLE)  //空闲时才允许修改模式
 		{
 			shooter->mode = SHOOTER_MODE_ONCE;
 			return true;
@@ -167,7 +167,7 @@ bool Shoot_ChangeModeCallback(const char* name, SoftBusFrame* frame, void* bindD
 		{
 			if(!Bus_IsMapKeyExist(frame,"interval-time"))
 				return false;
-			shooter->intervalTime = *(uint16_t*)Bus_GetMapValue(frame,"interval-time");
+			shooter->intervalTime = Bus_GetMapValue(frame,"interval-time").U16;
 			shooter->mode = SHOOTER_MODE_CONTINUE;
 			return true;
 		}

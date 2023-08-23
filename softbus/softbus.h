@@ -28,7 +28,7 @@ typedef struct _SoftBusItemX {
 		float F32;
 		_Bool Bool;
 		struct _SoftBusItemX* Child;
-	}; // 字长以内的数据均可以直接指定
+	} data; // 字长以内的数据均可以直接指定
 } SoftBusItemX;
 
 #ifndef IM_PTR
@@ -108,7 +108,7 @@ int8_t Bus_RegisterRemoteFunc(void* bindData, SoftBusRemoteFunction callback, co
 	@retval 指向指定数据字段的const指针,若查询不到key则返回NULL
 	@note 不应对返回的数据帧进行修改
 */
-const SoftBusItem* Bus_GetMapItem(SoftBusFrame* frame, char* key);
+const SoftBusItemX* Bus_GetMapItem(SoftBusFrame* frame, char* key);
 
 /*
 	@brief 判断映射表数据帧中是否存在指定字段
