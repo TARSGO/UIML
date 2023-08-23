@@ -178,12 +178,11 @@ void M3508_CtrlerCalc(M3508* m3508, float reference)
 	}
 	buffer[0] = (output>>8)&0xff;
 	buffer[1] = (output)&0xff;
-	Bus_RemoteCall("/can/set-buf",{
-		{"can-x", &m3508->canInfo.canX},
-		{"id", &m3508->canInfo.sendID},
-		{"pos", &m3508->canInfo.bufIndex},
-		{"len", &(uint8_t){2}},
-		{"data", buffer}
+	Bus_RemoteCall("/can/set-buf",{{"can-x", {.U8 = m3508->canInfo.canX}},
+		 						   {"id", {.U16 = m3508->canInfo.sendID}},
+		 						   {"pos", {.U8 = m3508->canInfo.bufIndex}},
+		 						   {"len", {.U8 = 2}},
+		 						   {"data", {buffer}}
 	});
 }
 //设置电机期望值

@@ -113,7 +113,9 @@ void DcMotor_StatAngle(DcMotor* dcMotor)
 	int32_t dAngle=0;
 	uint32_t autoReload=0;
 	
-	Bus_RemoteCall("/tim/encode",{{"tim-x",&dcMotor->encodeTim.timX},{"count",&dcMotor->angle},{"auto-reload",&autoReload}});
+	Bus_RemoteCall("/tim/encode",{{"tim-x", {.U8 = dcMotor->encodeTim.timX}},
+								  {"count", {.U32 = dcMotor->angle}},
+								  {"auto-reload", {.U32 = autoReload}}});
 	
 	if(dcMotor->angle - dcMotor->lastAngle < -(autoReload/2.0f))
 		dAngle = dcMotor->angle+(autoReload-dcMotor->lastAngle);
@@ -150,14 +152,22 @@ void DcMotor_CtrlerCalc(DcMotor* dcMotor, float reference)
   
 	if(output>0)
 	{
-		Bus_RemoteCall("/tim/pwm/set-duty",{{"tim-x",&dcMotor->posRotateTim.timX},{"channel-x",&dcMotor->posRotateTim.channelX},{"duty",&output}});
-		Bus_RemoteCall("/tim/pwm/set-duty",{{"tim-x",&dcMotor->posRotateTim.timX},{"channel-x",&dcMotor->negRotateTim.channelX},{"duty",IM_PTR(float, 0)}});
+		Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = dcMotor->posRotateTim.timX}},
+											 {"channel-x", {.U8 = dcMotor->posRotateTim.channelX}},
+											 {"duty", {.F32 = output}}});
+		Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = dcMotor->posRotateTim.timX}},
+											 {"channel-x", {.U8 = dcMotor->negRotateTim.channelX}},
+											 {"duty", {.F32 = 0.0f}}});
 	}
 	else
 	{
 		output = ABS(output);
-		Bus_RemoteCall("/tim/pwm/set-duty",{{"tim-x",&dcMotor->posRotateTim.timX},{"channel-x",&dcMotor->posRotateTim.channelX},{"duty",IM_PTR(float, 0)}});
-		Bus_RemoteCall("/tim/pwm/set-duty",{{"tim-x",&dcMotor->posRotateTim.timX},{"channel-x",&dcMotor->negRotateTim.channelX},{"duty",&output}});
+		Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = dcMotor->posRotateTim.timX}},
+										     {"channel-x", {.U8 = dcMotor->posRotateTim.channelX}},
+											 {"duty", {.F32 = 0.0f}}});
+		Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = dcMotor->posRotateTim.timX}},
+											 {"channel-x", {.U8 = dcMotor->negRotateTim.channelX}},
+											 {"duty", {.F32 = output}}});
 	}
 
 }

@@ -48,9 +48,9 @@ void Judge_TaskCallback(void const * argument)
 			JudgeTxFrame *txframe=(JudgeTxFrame*)Queue_Dequeue(&judge.txQueue);
 			
 			//发送ui
-			Bus_RemoteCall("/uart/trans/dma",{{"uart-x",&judge.uartX},
-			                                  {"data",(uint8_t *)txframe->data},
-			                                  {"trans-size",&txframe->frameLength}});
+			Bus_RemoteCall("/uart/trans/dma",{{"uart-x", {.U8 = judge.uartX}},
+			                                  {"data", {txframe->data}},
+			                                  {"trans-size", {.U16 = txframe->frameLength}}});
 		}
 		osDelay(judge.taskInterval);
 	}		

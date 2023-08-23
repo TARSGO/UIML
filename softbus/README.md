@@ -184,10 +184,10 @@ float value2 = 1.0f; //要传入的第二个参数
 float result1; //用于接收远程函数第一个返回值
 uint8_t result2;  //用于接收远程函数第二个返回值
 Bus_RemoteCall("fun1", {
-	{"arg1", &value1},
-	{"arg2", &value2},
-	{"ret1", &result1},
-	{"ret2", &result2}
+	{"arg1", {.U8 = &value1}},
+	{"arg2", {.F32 = &value2}},
+	{"ret1", {&result1}},
+	{"ret2", {&result2}}
 }); //调用远程函数fun1
 
 ```

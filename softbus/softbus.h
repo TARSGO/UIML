@@ -14,6 +14,23 @@ typedef struct{
 	void* data;
 }SoftBusItem;//数据字段
 
+typedef struct _SoftBusItemX {
+	const char* key;
+	union {
+		void* Ptr;
+		const char* Str;
+		uint32_t U32;
+		uint16_t U16;
+		uint8_t U8;
+		int32_t I32;
+		int16_t I16;
+		int8_t I8;
+		float F32;
+		_Bool Bool;
+		struct _SoftBusItemX* Child;
+	}; // 字长以内的数据均可以直接指定
+} SoftBusItemX;
+
 #ifndef IM_PTR
 #define IM_PTR(type,...) (&(type){__VA_ARGS__}) //取立即数的地址
 #endif
@@ -24,9 +41,9 @@ typedef bool (*SoftBusRemoteFunction)(const char* name, SoftBusFrame* frame, voi
 
 //操作函数声明(不直接调用，应使用下方define定义的接口)
 int8_t _Bus_MultiRegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, uint16_t namesNum, char** names);
-void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, SoftBusItem* items);
+void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, SoftBusItemX* items);
 void _Bus_BroadcastSendList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, void** list);
-bool _Bus_RemoteCallMap(const char* name, uint16_t itemNum, SoftBusItem* items);
+bool _Bus_RemoteCallMap(const char* name, uint16_t itemNum, SoftBusItemX* items);
 uint8_t _Bus_CheckMapKeys(SoftBusFrame* frame, uint16_t keysNum, char** keys);
 
 /*
@@ -55,7 +72,7 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	@retval void
 	@example Bus_BroadcastSend("name", {{"key1", data1}, {"key2", data2}});
 */
-#define Bus_BroadcastSend(name,...) _Bus_BroadcastSendMap((name),(sizeof((SoftBusItem[])__VA_ARGS__)/sizeof(SoftBusItem)),((SoftBusItem[])__VA_ARGS__))
+#define Bus_BroadcastSend(name,...) _Bus_BroadcastSendMap((name),(sizeof((SoftBusItemX[])__VA_ARGS__)/sizeof(SoftBusItemX)),((SoftBusItemX[])__VA_ARGS__))
 
 /*
 	@brief 通过快速句柄广播列表数据帧
@@ -80,9 +97,9 @@ int8_t Bus_RegisterRemoteFunc(void* bindData, SoftBusRemoteFunction callback, co
 	@param name:远程函数名
 	@param ...:远程函数参数列表(包含参数和返回值)
 	@retval true:成功 false:失败
-	@example Bus_RemoteCall("name", {{"key1", data1}, {"key2", data2}});
+	@example Bus_RemoteCall("name", {{"key1", {data1}}, {"key2", {data2}}});
 */
-#define Bus_RemoteCall(name,...) _Bus_RemoteCallMap((name),(sizeof((SoftBusItem[])__VA_ARGS__)/sizeof(SoftBusItem)),((SoftBusItem[])__VA_ARGS__))
+#define Bus_RemoteCall(name,...) _Bus_RemoteCallMap((name),(sizeof((SoftBusItemX[])__VA_ARGS__)/sizeof(SoftBusItemX)),((SoftBusItemX[])__VA_ARGS__))
 
 /*
 	@brief 查找映射表数据帧中的数据字段

@@ -152,7 +152,7 @@ void _Bus_BroadcastSend(const char* name, SoftBusFrame* frame)
 	}
 }
 
-void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, SoftBusItem* items)
+void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, SoftBusItemX* items)
 {
 	if(!hashList.data ||!name || !itemNum || !items)
 		return;
@@ -261,7 +261,7 @@ bool _Bus_RemoteCall(const char* name, SoftBusFrame* frame)
 	return false;
 }
 
-bool _Bus_RemoteCallMap(const char* name, uint16_t itemNum, SoftBusItem* items)
+bool _Bus_RemoteCallMap(const char* name, uint16_t itemNum, SoftBusItemX* items)
 {
 	if(!hashList.data ||!name || !itemNum || !items)
 		return false;

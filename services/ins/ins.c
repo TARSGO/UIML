@@ -118,5 +118,7 @@ void INS_TmpPIDTimerCallback(void const *argument)
 	INS* ins = pvTimerGetTimerID((TimerHandle_t)argument);
 	PID_SingleCalc(&ins->tmpPID, ins->targetTmp, ins->imu.tmp);
 	ins->tmpPID.output = ins->tmpPID.output > 0? ins->tmpPID.output : 0;
-	Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", &ins->timX}, {"channel-x", &ins->channelX}, {"duty", &ins->tmpPID.output}});
+	Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = ins->timX}},
+										 {"channel-x", {.U8 = ins->channelX}},
+										 {"duty", {.F32 = ins->tmpPID.output}}});
 }

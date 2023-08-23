@@ -44,12 +44,12 @@ uint8_t tmpGetDataCmd[4]={spiReadAddr(BMI088_TEMP_M)};
 bool BMI088_AccelInit(uint8_t spiX)
 {
 	uint8_t accId[3]= {0};
-	Bus_RemoteCall("/spi/block", {{"spi-x", &spiX}, 
-	                              {"tx-data", accIdCmd}, 
-	                              {"len", IM_PTR(uint16_t, 3)}, 
-	                              {"timeout", IM_PTR(uint32_t, 1000)}, 
-	                              {"cs-name", "acc"}, 
-	                              {"is-block", IM_PTR(bool, true)}}); //读加速度计id
+	Bus_RemoteCall("/spi/block", {{"spi-x", {&spiX}}, 
+	                              {"tx-data", {accIdCmd}}, 
+	                              {"len", {.U32 = 3}}, 
+	                              {"timeout", {.U32 = 1000}}, 
+	                              {"cs-name", {"acc"}}, 
+	                              {"is-block", {.Bool = true}}}); //读加速度计id
 	osDelay(1);
 	Bus_RemoteCall("/spi/block", {{"spi-x", &spiX}, 
 	                              {"tx-data", accPwrConfCmd}, 

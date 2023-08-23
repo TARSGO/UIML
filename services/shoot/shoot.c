@@ -58,7 +58,7 @@ void Shooter_TaskCallback(void const * argument)
 			case SHOOTER_MODE_ONCE:   //单发
 				if(shooter.fricEnable == false)   //若摩擦轮未开启则先开启
 				{
-					Bus_RemoteCall("/shooter/setting",{"fric-enable",IM_PTR(bool,true)});
+					Bus_RemoteCall("/shooter/setting",{{"fric-enable",{.Bool = true}}});
 					osDelay(200);     //等待摩擦轮转速稳定
 				}
 				shooter.targetTrigAngle += shooter.triggerAngle; 
@@ -68,7 +68,7 @@ void Shooter_TaskCallback(void const * argument)
 			case SHOOTER_MODE_CONTINUE:  //以一定的时间间隔连续发射 
 				if(shooter.fricEnable == false)   //若摩擦轮未开启则先开启
 				{
-					Bus_RemoteCall("/shooter/setting",{"fric-enable",IM_PTR(bool,true)});
+					Bus_RemoteCall("/shooter/setting",{{"fric-enable",{.Bool = true}}});
 					osDelay(200);   //等待摩擦轮转速稳定
 				}
 				shooter.targetTrigAngle += shooter.triggerAngle;  //增加拨弹电机目标角度
