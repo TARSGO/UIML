@@ -116,11 +116,11 @@ void M3508_SoftBusCallback(const char* name, SoftBusFrame* frame, void* bindData
 {
 	M3508* m3508 = (M3508*)bindData;
 
-	uint16_t id = *(uint16_t*)Bus_GetListValue(frame, 0);
+	uint16_t id = Bus_GetListValue(frame, 0).U16;
 	if(id != m3508->canInfo.recvID)
 		return;
 		
-	uint8_t* data = (uint8_t*)Bus_GetListValue(frame, 1);
+	uint8_t* data = Bus_GetListValue(frame, 1).Ptr;
 	if(data)
 		M3508_Update(m3508, data);
 }
