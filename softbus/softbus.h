@@ -1,8 +1,19 @@
 #ifndef _SOFTBUS_H_
 #define _SOFTBUS_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <stdbool.h>
+
+// MSVC C++下，使用(Typename){Structure}会导致报错。此解决方法来自 https://github.com/raysan5/raygui/pull/44/files
+#ifdef __cplusplus
+    #define CURLY_INIT(name) name
+#else
+    #define CURLY_INIT(name) (name)
+#endif
 
 typedef struct{
 	void* data;
@@ -24,7 +35,7 @@ typedef union _SoftBusGenericData {
 	int16_t I16;
 	int8_t I8;
 	float F32;
-	_Bool Bool;
+	bool Bool;
 	struct _SoftBusItemX* Child;
 } SoftBusGenericData;
 
@@ -44,7 +55,7 @@ typedef bool (*SoftBusRemoteFunction)(const char* name, SoftBusFrame* frame, voi
 //操作函数声明(不直接调用，应使用下方define定义的接口)
 int8_t _Bus_MultiRegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, uint16_t namesNum, char** names);
 void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, SoftBusItemX* items);
-void _Bus_BroadcastSendList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, void** list);
+void _Bus_BroadcastSendList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, SoftBusGenericData list[]);
 bool _Bus_RemoteCallMap(const char* name, uint16_t itemNum, SoftBusItemX* items);
 uint8_t _Bus_CheckMapKeys(SoftBusFrame* frame, uint16_t keysNum, char** keys);
 
@@ -65,7 +76,7 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	@retval 0:成功 -1:堆空间不足 -2:参数为空
 	@example Bus_MultiRegisterReceiver(NULL, callback, {"name1", "name2"});
 */
-#define Bus_MultiRegisterReceiver(bindData, callback,...) _Bus_MultiRegisterReceiver((bindData),(callback),(sizeof((char*[])__VA_ARGS__)/sizeof(char*)),((char*[])__VA_ARGS__))
+#define Bus_MultiRegisterReceiver(bindData, callback,...) _Bus_MultiRegisterReceiver((bindData),(callback),(sizeof(CURLY_INIT(char*[])__VA_ARGS__)/sizeof(char*)),(CURLY_INIT(char*[])__VA_ARGS__))
 
 /*
 	@brief 广播映射表数据帧
@@ -74,7 +85,12 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	@retval void
 	@example Bus_BroadcastSend("name", {{"key1", {data1}}, {"key2", {data2}}});
 */
+#ifdef _MSC_VER
+// 由于MSVC的奇葩错误提示系统，MSVC环境下C++无法使用原语法，只能为单元测试另开门路
+#define Bus_BroadcastSend(name,...) _Bus_BroadcastSendMap((name),(sizeof(__VA_ARGS__)/sizeof(SoftBusItemX)),(__VA_ARGS__))
+#else
 #define Bus_BroadcastSend(name,...) _Bus_BroadcastSendMap((name),(sizeof((SoftBusItemX[])__VA_ARGS__)/sizeof(SoftBusItemX)),((SoftBusItemX[])__VA_ARGS__))
+#endif
 
 /*
 	@brief 通过快速句柄广播列表数据帧
@@ -83,7 +99,11 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	@retval void
 	@example float value1,value2; Bus_FastBroadcastSend(handle, {{.F32 = value1}, {.F32 = value2}});
 */
-#define Bus_FastBroadcastSend(handle,...) _Bus_BroadcastSendList((handle),(sizeof((SoftBusGenericData[])__VA_ARGS__)/sizeof(SoftBusGenericData)),(void**)((SoftBusGenericData[])__VA_ARGS__))
+#ifdef _MSC_VER
+#define Bus_FastBroadcastSend(handle,...) _Bus_BroadcastSendList((handle),(sizeof(__VA_ARGS__)/sizeof(SoftBusGenericData)),(__VA_ARGS__))
+#else
+#define Bus_FastBroadcastSend(handle,...) _Bus_BroadcastSendList((handle),(sizeof((SoftBusGenericData[])__VA_ARGS__)/sizeof(SoftBusGenericData)),((SoftBusGenericData[])__VA_ARGS__))
+#endif
 
 /*
 	@brief 创建软总线上的一个远程函数
@@ -101,7 +121,7 @@ int8_t Bus_RegisterRemoteFunc(void* bindData, SoftBusRemoteFunction callback, co
 	@retval true:成功 false:失败
 	@example Bus_RemoteCall("name", {{"key1", {data1}}, {"key2", {data2}}});
 */
-#define Bus_RemoteCall(name,...) _Bus_RemoteCallMap((name),(sizeof((SoftBusItemX[])__VA_ARGS__)/sizeof(SoftBusItemX)),((SoftBusItemX[])__VA_ARGS__))
+#define Bus_RemoteCall(name,...) _Bus_RemoteCallMap((name),(sizeof(CURLY_INIT(SoftBusItemX[])__VA_ARGS__)/sizeof(SoftBusItemX)),(CURLY_INIT(SoftBusItemX[])__VA_ARGS__))
 
 /*
 	@brief 查找映射表数据帧中的数据字段
@@ -110,7 +130,7 @@ int8_t Bus_RegisterRemoteFunc(void* bindData, SoftBusRemoteFunction callback, co
 	@retval 指向指定数据字段的const指针,若查询不到key则返回NULL
 	@note 不应对返回的数据帧进行修改
 */
-const SoftBusItemX* Bus_GetMapItem(SoftBusFrame* frame, char* key);
+const SoftBusItemX* Bus_GetMapItem(SoftBusFrame* frame, const char* key);
 
 /*
 	@brief 判断映射表数据帧中是否存在指定字段
@@ -127,7 +147,7 @@ const SoftBusItemX* Bus_GetMapItem(SoftBusFrame* frame, char* key);
 	@retval 0:任意一个key不存在 1:所有key都存在
 	@example if(Bus_CheckMapKeys(frame, {"key1", "key2", "key3"})) { ... }
 */
-#define Bus_CheckMapKeys(frame,...) _Bus_CheckMapKeys((frame),(sizeof((char*[])__VA_ARGS__)/sizeof(char*)),((char*[])__VA_ARGS__))
+#define Bus_CheckMapKeys(frame,...) _Bus_CheckMapKeys((frame),(sizeof(CURLY_INIT(char*[])__VA_ARGS__)/sizeof(char*)),(CURLY_INIT(char*[])__VA_ARGS__))
 
 /*
 	@brief 获取映射表数据帧中指定字段的值
@@ -157,6 +177,10 @@ SoftBusReceiverHandle Bus_CreateReceiverHandle(const char* name);
 	@note 不应通过返回的指针修改指向的数据
 	@example float value = Bus_GetListValue(frame, 0).F32; //获取列表中第一个值
 */
-#define Bus_GetListValue(frame,pos) (((pos) < (frame)->size)?(((SoftBusGenericData*)(frame)->data))[(pos)]:(SoftBusGenericData){NULL})
+#define Bus_GetListValue(frame,pos) (((pos) < (frame)->size)?(((SoftBusGenericData*)(frame)->data))[(pos)]:CURLY_INIT(SoftBusGenericData){NULL})
+
+#ifdef __cplusplus
+} // extern "C" {
+#endif
 
 #endif

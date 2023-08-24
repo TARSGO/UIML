@@ -114,8 +114,8 @@ void DcMotor_StatAngle(DcMotor* dcMotor)
 	uint32_t autoReload=0;
 	
 	Bus_RemoteCall("/tim/encode",{{"tim-x", {.U8 = dcMotor->encodeTim.timX}},
-								  {"count", {.U32 = dcMotor->angle}},
-								  {"auto-reload", {.U32 = autoReload}}});
+								  {"count", {&dcMotor->angle}},
+								  {"auto-reload", {&autoReload}}});
 	
 	if(dcMotor->angle - dcMotor->lastAngle < -(autoReload/2.0f))
 		dAngle = dcMotor->angle+(autoReload-dcMotor->lastAngle);

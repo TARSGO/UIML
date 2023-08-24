@@ -161,7 +161,7 @@ void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, SoftBusItemX* ite
 	_Bus_BroadcastSend(name, &frame);
 }
 
-void _Bus_BroadcastSendList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, void** list)
+void _Bus_BroadcastSendList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, SoftBusGenericData list[])
 {
 	if(!hashList.data || !listNum || !list)
 		return;
@@ -282,7 +282,7 @@ uint8_t _Bus_CheckMapKeys(SoftBusFrame* frame, uint16_t keysNum, char** keys)
 	return 1;
 }
 
-const SoftBusItemX* Bus_GetMapItem(SoftBusFrame* frame, char* key)
+const SoftBusItemX* Bus_GetMapItem(SoftBusFrame* frame, const char* key)
 {
 	for(uint16_t i = 0; i < frame->size; ++i)
 	{
