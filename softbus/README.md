@@ -105,8 +105,8 @@
 uint8_t value1 = 0x01; //要发布的第一个值
 float value2 = 1.0f; //要发布的第二个值
 Bus_BroadcastSend("topic1", {
-	{"key1", &value1},
-	{"key2", &value2}
+	{"key1", {.U8 = value1}},
+	{"key2", {.U8 = value2}}
 }); //向总线广播一个映射表数据帧
 
 /* 快速发布方式 */
@@ -115,7 +115,7 @@ SoftBusReceiverHandle handle = Bus_CreateReceiverHandle("topic2");
 //发布数据帧
 uint16_t value = 0x201; //要发布的第一个值
 uint8_t array[2] = {0x20, 0x01}; //要发布的第二个值
-Bus_FastBroadcastSend(handle, {&value, array}); //向总线快速广播一个列表数据帧
+Bus_FastBroadcastSend(handle, {{.U16 = value}, {array}}); //向总线快速广播一个列表数据帧
 ```
 
 **接收广播**
@@ -128,8 +128,8 @@ void Callback(const char* name, SoftBusFrame* frame, void* bindData)
 	{
 		if(!Bus_CheckMapKeys(frame, {"key1", "key2"})) //确保数据帧中存在所需字段
 			return;
-		uint8_t value1 = *(uint8_t*)Bus_GetMapValue(frame, "key1"); //读取key1字段值
-		float value2 = *(float*)Bus_GetMapValue(frame, "key2"); //读取key2字段值
+		uint8_t value1 = Bus_GetMapValue(frame, "key1").U8; //读取key1字段值
+		float value2 = Bus_GetMapValue(frame, "key2").F32; //读取key2字段值
 		/* ...其他处理逻辑 */
 	}
 }
@@ -137,8 +137,8 @@ void Callback(const char* name, SoftBusFrame* frame, void* bindData)
 //为提高总线效率，一般使用单独回调函数订阅快速发布的话题
 void FastCallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
-	uint16_t value = *(uint16_t*)Bus_GetListValue(frame, 0); //获取第一个值
-	uint8_t* array = (uint8_t*)Bus_GetListValue(frame, 1); //获取第二个值
+	uint16_t value = Bus_GetListValue(frame, 0).U16; //获取第一个值
+	uint8_t* array = (uint8_t*)Bus_GetListValue(frame, 1).Ptr; //获取第二个值
 	/* ...其他处理逻辑 */
 }
 
@@ -158,10 +158,10 @@ bool Callback(const char* name, SoftBusFrame* frame, void* bindData)
 
 	if(!Bus_CheckMapKeys(frame, {"arg1", "arg2"，"ret1", "ret2"})) //确保数据帧中存在所需所有参数
 		return false;
-	uint8_t value1 = *(uint8_t*)Bus_GetMapValue(frame, "arg1"); //读取arg1参数值
-	float value2 = *(float*)Bus_GetMapValue(frame, "arg2"); //读取arg2参数值
-	float* result1 = (float*)Bus_GetMapValue(frame, "ret1"); //读取ret1参数值
-	uint8_t* result2 = (uint8_t*)Bus_GetMapValue(frame, "ret2"); //读取ret2参数值
+	uint8_t value1 = Bus_GetMapValue(frame, "arg1").U8; //读取arg1参数值
+	float value2 = Bus_GetMapValue(frame, "arg2").F32; //读取arg2参数值
+	float* result1 = (float*)Bus_GetMapValue(frame, "ret1").Ptr; //读取ret1参数值
+	uint8_t* result2 = (uint8_t*)Bus_GetMapValue(frame, "ret2").Ptr; //读取ret2参数值
 	
 	//...其他处理逻辑
 
@@ -200,4 +200,3 @@ Bus_RemoteCall("fun1", {
 	> 注：用`Bus_BroadcastSend`或`Bus_FastBroadcastSend`函数发布时，只有当订阅了该name的所有回调函数执行结束后，该发布函数才会退出
 2. **收到广播数据帧时，不得修改数据帧内容**，否则会导致后续回调函数收到的数据异常
 3. 软总线仅会传输数据的地址(data指针)，且**数据指针仅保证在回调函数范围内有效**，若需在回调函数外使用这些数据，请在回调中拷贝整个数据，而不只是保存数据指针
-4. 软总线底层通过hash表进行字符串的匹配，可以通过修改`SoftBus_Str2Hash`这个宏来更换hash函数，经测试在字符串长度小于20个字节时，`SoftBus_Str2Hash_8`函数效率较高，而在字符串长度大于20个字节时，`SoftBus_Str2Hash_32`函数效率较高

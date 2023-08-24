@@ -116,11 +116,11 @@ void M2006_SoftBusCallback(const char* name, SoftBusFrame* frame, void* bindData
 {
     M2006* m2006 = (M2006*)bindData;
 
-    uint16_t id = *(uint16_t*)Bus_GetListValue(frame, 0);
+    uint16_t id = Bus_GetListValue(frame, 0).U16;
     if(id != m2006->canInfo.recvID)
         return;
         
-    uint8_t* data = (uint8_t*)Bus_GetListValue(frame, 1);
+    uint8_t* data = Bus_GetListValue(frame, 1).Ptr;
     if(data)
         M2006_Update(m2006, data);
 }

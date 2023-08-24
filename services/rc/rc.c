@@ -292,8 +292,9 @@ void RC_SoftBusCallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
 	RC* rc = (RC*)bindData;
 	
-	uint8_t* data = (uint8_t*)Bus_GetListValue(frame, 0);
-	uint16_t* len = (uint16_t*)Bus_GetListValue(frame, 1);
+	uint8_t* data = (uint8_t*)Bus_GetListValue(frame, 0).Ptr;
+	uint16_t len = Bus_GetListValue(frame, 1).U16;
+
 	if(data && len)
 		RC_ParseData(rc, data);
 }

@@ -14,25 +14,27 @@ typedef struct{
 	void* data;
 }SoftBusItem;//数据字段
 
+typedef union _SoftBusGenericData {
+	void* Ptr;
+	const char* Str;
+	uint32_t U32;
+	uint16_t U16;
+	uint8_t U8;
+	int32_t I32;
+	int16_t I16;
+	int8_t I8;
+	float F32;
+	_Bool Bool;
+	struct _SoftBusItemX* Child;
+} SoftBusGenericData;
+
 typedef struct _SoftBusItemX {
 	const char* key;
-	union {
-		void* Ptr;
-		const char* Str;
-		uint32_t U32;
-		uint16_t U16;
-		uint8_t U8;
-		int32_t I32;
-		int16_t I16;
-		int8_t I8;
-		float F32;
-		_Bool Bool;
-		struct _SoftBusItemX* Child;
-	} data; // 字长以内的数据均可以直接指定
+	SoftBusGenericData data; // 字长以内的数据均可以直接指定
 } SoftBusItemX;
 
 #ifndef IM_PTR
-#define IM_PTR(type,...) (&(type){__VA_ARGS__}) //取立即数的地址
+//#define IM_PTR(type,...) (&(type){__VA_ARGS__}) //取立即数的地址
 #endif
 
 typedef void* SoftBusReceiverHandle;//软总线快速句柄
@@ -59,7 +61,7 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	@brief 订阅软总线上的多个广播
 	@param bindData:绑定数据
 	@param callback:广播发布时的回调函数
-	@param ...:广播字符串列表
+	@param ...:广播名称列表
 	@retval 0:成功 -1:堆空间不足 -2:参数为空
 	@example Bus_MultiRegisterReceiver(NULL, callback, {"name1", "name2"});
 */
@@ -70,7 +72,7 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	@param name:广播名
 	@param ...:映射表
 	@retval void
-	@example Bus_BroadcastSend("name", {{"key1", data1}, {"key2", data2}});
+	@example Bus_BroadcastSend("name", {{"key1", {data1}}, {"key2", {data2}}});
 */
 #define Bus_BroadcastSend(name,...) _Bus_BroadcastSendMap((name),(sizeof((SoftBusItemX[])__VA_ARGS__)/sizeof(SoftBusItemX)),((SoftBusItemX[])__VA_ARGS__))
 
@@ -79,9 +81,9 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	@param handle:快速句柄
 	@param ...:数据指针列表
 	@retval void
-	@example float value1,value2; Bus_FastBroadcastSend(handle, {&value1, &value2});
+	@example float value1,value2; Bus_FastBroadcastSend(handle, {{.F32 = value1}, {.F32 = value2}});
 */
-#define Bus_FastBroadcastSend(handle,...) _Bus_BroadcastSendList((handle),(sizeof((void*[])__VA_ARGS__)/sizeof(void*)),((void*[])__VA_ARGS__))
+#define Bus_FastBroadcastSend(handle,...) _Bus_BroadcastSendList((handle),(sizeof((SoftBusGenericData[])__VA_ARGS__)/sizeof(SoftBusGenericData)),(void**)((SoftBusGenericData[])__VA_ARGS__))
 
 /*
 	@brief 创建软总线上的一个远程函数
@@ -151,10 +153,10 @@ SoftBusReceiverHandle Bus_CreateReceiverHandle(const char* name);
 	@brief 获取列表数据帧中指定索引的数据
 	@param frame:数据帧的指针
 	@param pos:数据在列表中的位置
-	@retval 指向数据的(void*)型指针，若不存在则返回NULL
+	@retval 包含数据的SoftBusGenericData联合体，若不存在则返回一个空的联合体
 	@note 不应通过返回的指针修改指向的数据
-	@example float value = *(float*)Bus_GetListValue(frame, 0); //获取列表中第一个值
+	@example float value = Bus_GetListValue(frame, 0).F32; //获取列表中第一个值
 */
-#define Bus_GetListValue(frame,pos) (((pos) < (frame)->size)?((void**)(frame)->data)[(pos)]:NULL)
+#define Bus_GetListValue(frame,pos) (((pos) < (frame)->size)?(((SoftBusGenericData*)(frame)->data))[(pos)]:(SoftBusGenericData){NULL})
 
 #endif

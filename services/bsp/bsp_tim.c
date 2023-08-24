@@ -43,7 +43,7 @@ void BSP_TIM_UpdateCallback(TIM_HandleTypeDef *htim)
 		if(htim == timService.timList[num].htim) //找到对应的TIM
 		{
 			TIMInfo* timInfo = &timService.timList[num];
-			Bus_FastBroadcastSend(timInfo->fastHandle,{""});
+			Bus_FastBroadcastSend(timInfo->fastHandle,{{""}});
 		}
 	}
 }

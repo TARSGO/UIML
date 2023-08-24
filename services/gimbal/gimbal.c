@@ -119,9 +119,9 @@ void Gimbal_BroadcastCallback(const char* name, SoftBusFrame* frame, void* bindD
 	{
 		if(!Bus_CheckMapKeys(frame, {"yaw", "pitch", "roll"}))
 			return;
-		float yaw = *(float*)Bus_GetMapValue(frame, "yaw");
-		float pitch = *(float*)Bus_GetMapValue(frame, "pitch");
-		float roll = *(float*)Bus_GetMapValue(frame, "roll");
+		float yaw = Bus_GetMapValue(frame, "yaw").F32;
+		float pitch = Bus_GetMapValue(frame, "pitch").F32;
+		float roll = Bus_GetMapValue(frame, "roll").F32;
 		Gimbal_StatAngle(gimbal, yaw, pitch, roll); //统计云台角度
 	}
 }

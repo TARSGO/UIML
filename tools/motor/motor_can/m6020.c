@@ -100,11 +100,11 @@ void M6020_SoftBusCallback(const char* name, SoftBusFrame* frame, void* bindData
 {
     M6020* m6020 = (M6020*)bindData;
 
-    uint16_t id = *(uint16_t*)Bus_GetListValue(frame, 0);
+    uint16_t id = Bus_GetListValue(frame, 0).U16;
     if(id != m6020->canInfo.recvID)
         return;
         
-    uint8_t* data = (uint8_t*)Bus_GetListValue(frame, 1);
+    uint8_t* data = Bus_GetListValue(frame, 1).Ptr;
     if(data)
         M6020_Update(m6020, data);
 }

@@ -70,7 +70,7 @@ void BSP_UART_IRQCallback(uint8_t huartX)
 		/* clear idle it flag avoid idle interrupt all the time */
 		__HAL_UART_CLEAR_IDLEFLAG(uartInfo->huart);
 		uint16_t recSize=uartInfo->recvBuffer.pos; //此时pos值为一帧数据的长度
-		Bus_FastBroadcastSend(uartInfo->fastHandle, {uartInfo->recvBuffer.data, &recSize}); //空闲中断为一帧，发送一帧数据
+		Bus_FastBroadcastSend(uartInfo->fastHandle, {{uartInfo->recvBuffer.data}, {.U16 = recSize}}); //空闲中断为一帧，发送一帧数据
 		uartInfo->recvBuffer.pos = 0;
 	}
 }
@@ -150,10 +150,10 @@ bool BSP_UART_BlockCallback(const char* name, SoftBusFrame* frame, void* bindDat
 	if(!Bus_CheckMapKeys(frame, {"uart-x", "data", "trans-size", "timeout"}))
 		return false;
 
-	uint8_t uartX = *(uint8_t*)Bus_GetMapValue(frame, "uart-x");
-	uint8_t* data = (uint8_t*)Bus_GetMapValue(frame, "data");
-	uint16_t transSize = *(uint16_t*)Bus_GetMapValue(frame, "trans-size");
-	uint32_t timeout = *(uint32_t*)Bus_GetMapValue(frame, "timeout");
+	uint8_t uartX = Bus_GetMapValue(frame, "uart-x").U8;
+	uint8_t* data = (uint8_t*)Bus_GetMapValue(frame, "data").Ptr;
+	uint16_t transSize = Bus_GetMapValue(frame, "trans-size").U16;
+	uint32_t timeout = Bus_GetMapValue(frame, "timeout").U32;
 	HAL_UART_Transmit(uartService.uartList[uartX - 1].huart,data,transSize,timeout);
 	return true;
 }
@@ -164,9 +164,9 @@ bool BSP_UART_ItCallback(const char* name, SoftBusFrame* frame, void* bindData)
 	if(!Bus_CheckMapKeys(frame, {"uart-x","data","trans-size"}))
 		return false;
 
-	uint8_t uartX = *(uint8_t*)Bus_GetMapValue(frame, "uart-x");
-	uint8_t* data = (uint8_t*)Bus_GetMapValue(frame, "data");
-	uint16_t transSize = *(uint16_t*)Bus_GetMapValue(frame, "trans-size");
+	uint8_t uartX = Bus_GetMapValue(frame, "uart-x").U8;
+	uint8_t* data = (uint8_t*)Bus_GetMapValue(frame, "data").Ptr;
+	uint16_t transSize = Bus_GetMapValue(frame, "trans-size").U16;
 	HAL_UART_Transmit_IT(uartService.uartList[uartX - 1].huart,data,transSize);
 	return true;
 }
@@ -177,9 +177,9 @@ bool BSP_UART_DMACallback(const char* name, SoftBusFrame* frame, void* bindData)
 	if(!Bus_CheckMapKeys(frame, {"uart-x","data","trans-size"}))
 		return false;
 
-	uint8_t uartX = *(uint8_t*)Bus_GetMapValue(frame, "uart-x");
-	uint8_t* data = (uint8_t*)Bus_GetMapValue(frame, "data");
-	uint16_t transSize = *(uint16_t*)Bus_GetMapValue(frame, "trans-size");
+	uint8_t uartX = Bus_GetMapValue(frame, "uart-x").U8;
+	uint8_t* data = (uint8_t*)Bus_GetMapValue(frame, "data").Ptr;
+	uint16_t transSize = Bus_GetMapValue(frame, "trans-size").U16;
 	HAL_UART_Transmit_DMA(uartService.uartList[uartX - 1].huart,data,transSize);
 	return true;
 }

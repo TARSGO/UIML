@@ -54,7 +54,7 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi)
 		SPIInfo* spiInfo = &spiService.spiList[num];
 		if(hspi == spiInfo->hspi) //找到中断回调函数中对应spi列表的spi
 		{
-			Bus_FastBroadcastSend(spiInfo->fastHandle, {spiService.spiList->recvBuffer.data, &spiService.spiList->recvBuffer.dataLen}); //发送数据
+			Bus_FastBroadcastSend(spiInfo->fastHandle, {{spiService.spiList->recvBuffer.data}, {.U16 = spiService.spiList->recvBuffer.dataLen}}); //发送数据
 			//将片选全部拉高
 			for(uint8_t i = 0; i < spiService.spiList[num].csNum; i++)
 			{

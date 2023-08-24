@@ -1,5 +1,6 @@
 #include "softbus.h"
 #include "vector.h"
+#include "hasher.h"
 #include "cmsis_os.h"
 
 #include <string.h>
@@ -10,7 +11,7 @@
 #define SOFTBUS_MEMCPY_PORT(dst,src,len) memcpy(dst,src,len)
 #define SOFTBUS_STRLEN_PORT(str) strlen(str)
 
-#define SoftBus_Str2Hash(str) SoftBus_Str2Hash_8(str)
+#define SoftBus_Str2Hash(str) Hasher_UIML32((str),strlen((str)))
 
 typedef struct{
     void* bindData;

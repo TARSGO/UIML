@@ -122,13 +122,13 @@ void Sys_Chassis_MoveCallback(const char* name, SoftBusFrame* frame, void* bindD
     {
         if(!Bus_CheckMapKeys(frame,{"combine-key","key"}))
             return;
-        if(!strcmp(Bus_GetMapValue(frame,"combine-key"), "none"))  //正常
+        if(!strcmp(Bus_GetMapValue(frame,"combine-key").Str, "none"))  //正常
             speedRatio=1; 
-        else if(!strcmp(Bus_GetMapValue(frame,"combine-key"), "shift")) //快速
+        else if(!strcmp(Bus_GetMapValue(frame,"combine-key").Str, "shift")) //快速
             speedRatio=5; 
-        else if(!strcmp(Bus_GetMapValue(frame,"combine-key"), "ctrl")) //慢速
+        else if(!strcmp(Bus_GetMapValue(frame,"combine-key").Str, "ctrl")) //慢速
             speedRatio=0.2;
-        switch(*(char*)Bus_GetMapValue(frame,"key"))
+        switch(Bus_GetMapValue(frame,"key").Str[0])
         {
             case 'A': 
                 sysCtrl.chassisData.vx = 200*speedRatio;
@@ -148,8 +148,8 @@ void Sys_Chassis_MoveCallback(const char* name, SoftBusFrame* frame, void* bindD
     {
         if(!Bus_CheckMapKeys(frame,{"x","y"}))
             return;
-        sysCtrl.chassisData.vx = *(int16_t*)Bus_GetMapValue(frame,"x");
-        sysCtrl.chassisData.vy = *(int16_t*)Bus_GetMapValue(frame,"y");
+        sysCtrl.chassisData.vx = Bus_GetMapValue(frame,"x").U16;
+        sysCtrl.chassisData.vy = Bus_GetMapValue(frame,"y").U16;
     }
 }
 void Sys_Chassis_StopCallback(const char* name, SoftBusFrame* frame, void* bindData)
@@ -157,7 +157,7 @@ void Sys_Chassis_StopCallback(const char* name, SoftBusFrame* frame, void* bindD
 
     if(sysCtrl.rockerCtrl || !Bus_IsMapKeyExist(frame, "key"))
         return;
-    switch(*(char*)Bus_GetMapValue(frame,"key"))
+    switch(Bus_GetMapValue(frame,"key").U8)
     {
         case 'A': 
         case 'D': 
@@ -187,14 +187,14 @@ void Sys_Gimbal_RotateCallback(const char* name, SoftBusFrame* frame, void* bind
             return;
         // Yaw：【1 / 660 * 30 = 0.04545】（遥控器满杆量时，期望云台能转到偏移角30度位置）
         // Pitch：【1 / 660 * 10 = 0.01515】（满杆量时相对转动10度）//FIXME
-        sysCtrl.gimbalData.targetYaw = *(int16_t*)Bus_GetMapValue(frame,"x")*0.045;
-        sysCtrl.gimbalData.targetPitch = *(int16_t*)Bus_GetMapValue(frame,"y")*0.015; 
+        sysCtrl.gimbalData.targetYaw = Bus_GetMapValue(frame,"x").U16 * 0.045;
+        sysCtrl.gimbalData.targetPitch = Bus_GetMapValue(frame,"y").U16 *0.015; 
     }
     else if(!strcmp(name,"/gimbal/yaw/relative-angle"))
     {
         if(!Bus_IsMapKeyExist(frame,"angle"))
             return;
-        sysCtrl.gimbalData.relativeAngle = *(float*)Bus_GetMapValue(frame,"angle");
+        sysCtrl.gimbalData.relativeAngle = Bus_GetMapValue(frame,"angle").F32;
     }
 }
 
@@ -205,7 +205,7 @@ void Sys_Mode_ChangeCallback(const char* name, SoftBusFrame* frame, void* bindDa
     {
         if(!Bus_IsMapKeyExist(frame,"key"))
             return;
-        switch(*(char*)Bus_GetMapValue(frame,"key"))
+        switch(Bus_GetMapValue(frame,"key").U8)
         {
             case 'Q':  
                 sysCtrl.mode = SYS_SPIN_MODE;  //小陀螺模式
@@ -222,7 +222,7 @@ void Sys_Mode_ChangeCallback(const char* name, SoftBusFrame* frame, void* bindDa
     {
         if(Bus_IsMapKeyExist(frame, "right")&& sysCtrl.rockerCtrl)
         {
-            switch(*(uint8_t*)Bus_GetMapValue(frame, "right"))
+            switch(Bus_GetMapValue(frame, "right").U8)
             {
                 case 1:
                     sysCtrl.mode = SYS_SPIN_MODE; //小陀螺模式
@@ -237,7 +237,7 @@ void Sys_Mode_ChangeCallback(const char* name, SoftBusFrame* frame, void* bindDa
         }
         if(Bus_IsMapKeyExist(frame, "left"))
         {
-            switch(*(uint8_t*)Bus_GetMapValue(frame, "left"))
+            switch(Bus_GetMapValue(frame, "left").U8)
             {
                 case 1:
                     sysCtrl.rockerCtrl = true; //切换至遥控器控制
@@ -268,7 +268,7 @@ void Sys_Shoot_Callback(const char* name, SoftBusFrame* frame, void* bindData)
     {
         if(!Bus_IsMapKeyExist(frame,"left"))
             return;
-            Bus_RemoteCall("/shooter/mode",{{"mode", {"continue"}}, {"interval-time", {.U32 = 100}}}); //连发
+        Bus_RemoteCall("/shooter/mode",{{"mode", {"continue"}}, {"interval-time", {.U32 = 100}}}); //连发
     }
     else if(!strcmp(name,"/rc/key/on-up") && !sysCtrl.rockerCtrl)
     {
@@ -280,7 +280,7 @@ void Sys_Shoot_Callback(const char* name, SoftBusFrame* frame, void* bindData)
     {
         if(!Bus_IsMapKeyExist(frame,"value"))
             return;
-        int16_t wheel = *(int16_t*)Bus_GetMapValue(frame, "value");
+        int16_t wheel = Bus_GetMapValue(frame, "value").I16;
 
         if(wheel > 600)
             Bus_RemoteCall("/shooter/mode", {{"mode", {"once"}}}); //点射
@@ -290,7 +290,7 @@ void Sys_Shoot_Callback(const char* name, SoftBusFrame* frame, void* bindData)
 //急停
 void Sys_ErrorHandle(void)
 {
-    Bus_BroadcastSend("/system/stop",{"",0});
+    Bus_BroadcastSend("/system/stop", {{"", {NULL}}});
     while(1)
     {
         if(!sysCtrl.errFlag)

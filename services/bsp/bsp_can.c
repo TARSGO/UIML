@@ -55,7 +55,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		if(hcan == canInfo->hcan) //找到中断回调函数中对应can列表的can
 		{
 			uint16_t frameID = header.StdId;
-			Bus_FastBroadcastSend(canInfo->fastHandle, {&frameID, rx_data}); //快速广播发布数据
+			Bus_FastBroadcastSend(canInfo->fastHandle, {{.U16 = frameID}, {rx_data}}); //快速广播发布数据
 			break;
 		}
 	}
