@@ -1,6 +1,10 @@
 #ifndef _QUEUE_H_
 #define _QUEUE_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "stdint.h" 
 
 #define EMPTY_QUEUE {NULL,0,0,0,NULL,0}
@@ -30,5 +34,9 @@ void* Queue_GetElement(Queue *queue,uint16_t position);
 void* Queue_Top(Queue *queue);
 void* Queue_Dequeue(Queue *queue);
 void Queue_Enqueue(Queue *queue,void* data);
+
+#ifdef __cplusplus
+} // extern "C" {
+#endif
 
 #endif

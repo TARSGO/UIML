@@ -1,6 +1,10 @@
 #ifndef _SLOPE_H_
 #define _SLOPE_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef ABS
 #define ABS(x) ((x)>=0?(x):-(x))
 #endif
@@ -18,5 +22,9 @@ void Slope_SetTarget(Slope *slope,float target);
 void Slope_SetStep(Slope *slope,float step);
 float Slope_NextVal(Slope *slope);
 float Slope_GetVal(Slope *slope);
+
+#ifdef __cplusplus
+} // extern "C" {
+#endif
 
 #endif

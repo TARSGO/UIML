@@ -3,6 +3,10 @@
 #ifndef _VECTOR_H_
 #define _VECTOR_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 //Vector数据结构体
@@ -174,5 +178,9 @@ int _Vector_TrimCapacity(Vector *vector);
 	@example Vector_ForEach(vector,ptr,int) { printf("%d",*ptr); }
 */
 #define Vector_ForEach(vector,iter,type) for(type *iter=(type*)(vector).data; iter<((type*)(vector).data+(vector).size); iter++)
+
+#ifdef __cplusplus
+} // extern "C" {
+#endif
 
 #endif
