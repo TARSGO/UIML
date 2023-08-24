@@ -62,6 +62,7 @@ template <typename T> void AssertYamlValue(UimlYamlNode* root, const char* path,
 }
 
 void TestYamlParser() {
+    std::cerr << __FUNCTION__ << std::endl;
     UimlYamlNode* root;
 
     UimlYamlParse(yaml_simple, &root);

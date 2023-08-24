@@ -6,4 +6,5 @@
 
 int main() {
     TestYamlParser();
+    TestSoftBusFunctionality();
 }

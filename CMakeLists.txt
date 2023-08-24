@@ -27,12 +27,5 @@ target_include_directories(uiml_static PUBLIC
 )
 
 if(PROJECT_IS_TOP_LEVEL)
-    target_include_directories(uiml_static PRIVATE test)
-
-    file(GLOB UIML_TEST_SRC test/*.cpp)
-    add_executable(${PROJECT_NAME}_test ${UIML_TEST_SRC} conf/yamlparser.cpp tools/hasher/hasher.c tools/universal_vector/vector.c)
-    # target_link_libraries(${PROJECT_NAME}_test uiml_static)
-    target_include_directories(${PROJECT_NAME}_test PRIVATE test tools/include)
-    add_test(RunTest ${PROJECT_NAME}_test)
-    set_tests_properties(RunTest PROPERTIES FAIL_REGULAR_EXPRESSION "^FAIL:")
+    add_subdirectory(test)
 endif()
