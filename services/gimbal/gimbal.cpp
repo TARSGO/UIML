@@ -21,14 +21,14 @@ typedef struct _Gimbal
 		float lastEulerAngle[3];
 		float totalEulerAngle[3];
 		PID pid[2];
-	}imu;
-	float angle[2];	//云台角度
+	} imu;
+	float angle[2];	// 云台角度
 	uint16_t taskInterval;	
-	//软总线广播、远程函数name
+	// 软总线广播、远程函数name
 	char* yawRelAngleName;	
 	char* imuEulerAngleName;
 	char* settingName;
-}Gimbal;
+} Gimbal;
 
 void Gimbal_Init(Gimbal* gimbal, ConfItem* dict);
 void Gimbal_TotalAngleInit(Gimbal* gimbal);
@@ -49,25 +49,28 @@ void Gimbal_TaskCallback(void const * argument)
 	portEXIT_CRITICAL();
 	osDelay(2000);
 	Gimbal_TotalAngleInit(&gimbal); //计算云台零点
+
 	//计算好云台零点后，更改电机模式，imu反馈做角度外环电机速度反馈做内环
 	gimbal.motors[0]->changeMode(gimbal.motors[0], MOTOR_SPEED_MODE);
 	gimbal.motors[1]->changeMode(gimbal.motors[1], MOTOR_SPEED_MODE);
 
 	GlobalGimbal = &gimbal;
 
-	while(1)
+	while (1)
 	{
 		//计算角度串级pid
-		PID_SingleCalc(&gimbal.imu.pid[0], gimbal.angle[0], gimbal.relativeAngle/*gimbal.imu.totalEulerAngle[0]*/);
-		PID_SingleCalc(&gimbal.imu.pid[1], gimbal.angle[1], gimbal.imu.totalEulerAngle[1]);
+		gimbal.imu.pid[0].SingleCalc(gimbal.angle[0], gimbal.relativeAngle/*gimbal.imu.totalEulerAngle[0]*/);
+		gimbal.imu.pid[0].SingleCalc(gimbal.angle[1], gimbal.imu.totalEulerAngle[1]);
+
 		gimbal.motors[0]->setTarget(gimbal.motors[0], gimbal.imu.pid[0].output);
 		gimbal.motors[1]->setTarget(gimbal.motors[1], gimbal.imu.pid[1].output);
+
 		//解算云台距离零点的角度
 		gimbal.relativeAngle = gimbal.motors[0]->getData(gimbal.motors[0], "totalAngle");
 		int16_t turns = (int32_t)gimbal.relativeAngle / 360; //转数
-		turns = turns < 0 ? turns - 1 : turns; //如果是负数多减一圈使偏离角变成正数
-		gimbal.relativeAngle -= turns*360; //0-360度
-		Bus_BroadcastSend(gimbal.yawRelAngleName, {{"angle", &gimbal.relativeAngle}}); //广播云台偏离角
+		turns = (turns < 0) ? (turns - 1) : turns; //如果是负数多减一圈使偏离角变成正数
+		gimbal.relativeAngle -= turns * 360; //0-360度
+		Bus_BroadcastSend(gimbal.yawRelAngleName, {{"angle", &gimbal.relativeAngle}}); // 广播云台偏离角
 		osDelay(gimbal.taskInterval);
 	}
 }
@@ -85,22 +88,23 @@ void Gimbal_Init(Gimbal* gimbal, ConfItem* dict)
 	gimbal->motors[0] = Motor_Init(Conf_GetPtr(dict, "motor-yaw", ConfItem));
 	gimbal->motors[1] = Motor_Init(Conf_GetPtr(dict, "motor-pitch", ConfItem));
 
-	PID_Init(&gimbal->imu.pid[0], Conf_GetPtr(dict, "yaw-imu-pid", ConfItem));
-	PID_Init(&gimbal->imu.pid[1], Conf_GetPtr(dict, "pitch-imu-pid", ConfItem));
+	gimbal->imu.pid[0].Init(Conf_GetPtr(dict, "yaw-imu-pid", ConfItem));
+	gimbal->imu.pid[1].Init(Conf_GetPtr(dict, "pitch-imu-pid", ConfItem));
+
 	//广播、远程函数name重映射
-	char* temp = Conf_GetPtr(dict, "name", char);
+	auto temp = Conf_GetValue(dict, "name", const char*, nullptr);
 	temp = temp ? temp : "gimbal";
 	uint8_t len = strlen(temp);
-	gimbal->settingName = pvPortMalloc(len + 9+ 1); //9为"/   /setting"的长度，1为'\0'的长度
+	gimbal->settingName = (char*)pvPortMalloc(len + 9 + 1); //9为"/   /setting"的长度，1为'\0'的长度
 	sprintf(gimbal->settingName, "/%s/setting", temp);
 
-	gimbal->yawRelAngleName = pvPortMalloc(len + 20+ 1); //20为"/   /yaw/relative-angle"的长度，1为'\0'的长度
+	gimbal->yawRelAngleName = (char*)pvPortMalloc(len + 20 + 1); //20为"/   /yaw/relative-angle"的长度，1为'\0'的长度
 	sprintf(gimbal->yawRelAngleName, "/%s/yaw/relative-angle", temp);
 
 	temp = Conf_GetPtr(dict, "ins-name", char);
 	temp = temp ? temp : "ins";
 	len = strlen(temp);
-	gimbal->imuEulerAngleName = pvPortMalloc(len + 13+ 1); //13为"/   /euler-angle"的长度，1为'\0'的长度
+	gimbal->imuEulerAngleName = (char*)pvPortMalloc(len + 13 + 1); //13为"/   /euler-angle"的长度，1为'\0'的长度
 	sprintf(gimbal->imuEulerAngleName, "/%s/euler-angle", temp);
 
 	//不在这里设置电机模式，因为在未设置好零点前，pid会驱使电机达到编码器的零点或者imu的初始化零点
@@ -131,11 +135,11 @@ bool Gimbal_SettingCallback(const char* name, SoftBusFrame* frame, void* bindDat
 
 	if(Bus_IsMapKeyExist(frame, "yaw"))
 	{
-		gimbal->angle[0] = *(float*)Bus_GetMapValue(frame, "yaw");
+		gimbal->angle[0] = Bus_GetMapValue(frame, "yaw").F32;
 	}
 	if(Bus_IsMapKeyExist(frame, "pitch"))
 	{
-		gimbal->angle[1] = *(float*)Bus_GetMapValue(frame, "pitch");
+		gimbal->angle[1] = Bus_GetMapValue(frame, "pitch").F32;
 	}
 	return true;
 }

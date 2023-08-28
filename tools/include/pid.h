@@ -1,8 +1,7 @@
 #ifndef _USER_PID_H_
 #define _USER_PID_H_
 
-#include "../../conf/config.h"
-
+#include "config.h"
 #include <functional>
 
 #ifndef LIMIT
@@ -16,30 +15,32 @@
 class PID
 {
 public:
-    float kp,ki,kd;
-    float error,lastError;//误差、上次误差
-    float integral,maxIntegral;//积分、积分限幅
-    float output,maxOutput;//输出、输出限幅
-    float deadzone;//死区
-
+    PID();
     PID(ConfItem* conf);
-    void SingleCalc(float reference,float feedback);
-    void FeedbackCalc(float reference, float feedback, const std::function<float(float)>& lambda);
+    void Init(ConfItem* conf);
+    float SingleCalc(float reference, float feedback);
+    float FeedforwardCalc(float reference, float feedback, const std::function<float(float)> lambda);
     void Clear();
-    void SetMaxOutput(float maxOutput);
-    void SetMaxIntegral(float maxIntegral);
-    void SetDeadzone(float deadzone);
+
+    float kp, ki, kd;
+    float error, lastError; // 误差、上次误差
+    float integral, maxIntegral; // 积分、积分限幅
+    float output, maxOutput; // 输出、输出限幅
+    float deadzone; // 死区
 };
 
 class CascadePID
 {
 public:
-    PID inner;//内环
-    PID outer;//外环
-    float output;//串级输出，等于inner.output
+    CascadePID() {};
+    CascadePID(ConfItem* conf);
+    void Init(ConfItem* conf);
+    float CascadeCalc(float angleRef, float angleFeedback, float speedFeedback);
+    void Clear();
 
-    void CascadeCalc(float angleRef,float angleFdb,float speedFdb);
+    PID inner; // 内环
+    PID outer; // 外环
+    float output; // 串级输出，等于inner.output
 };
-
 
 #endif

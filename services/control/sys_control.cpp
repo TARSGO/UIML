@@ -51,7 +51,8 @@ void Sys_InitInfo(ConfItem *dict)
 {
     sysCtrl.mode = Conf_GetValue(dict, "init-mode", uint8_t, SYS_FOLLOW_MODE); //默认跟随模式
     sysCtrl.rockerCtrl = Conf_GetValue(dict, "rocker-ctrl", bool, false);  //默认键鼠控制
-    PID_Init(&sysCtrl.rotatePID, Conf_GetPtr(dict, "rotate-pid", ConfItem)); 
+
+    sysCtrl.rotatePID.Init(Conf_GetPtr(dict, "rotate-pid", ConfItem)); // 初始化小陀螺PID
 }
 
 //初始化接收
@@ -66,7 +67,7 @@ void Sys_InitReceiver()
                                                                 "/gimbal/yaw/relative-angle"});	
     //模式切换
     Bus_MultiRegisterReceiver(NULL, Sys_Mode_ChangeCallback, {"/rc/key/on-click","/rc/switch"});
-    //发射  
+    //发射
     Bus_MultiRegisterReceiver(NULL, Sys_Shoot_Callback, {"/rc/key/on-click",
                                                         "/rc/key/on-long-press",
                                                         "/rc/key/on-up",
@@ -87,7 +88,7 @@ void SYS_CTRL_TaskCallback(void const * argument)
 
         if(sysCtrl.mode==SYS_FOLLOW_MODE)//跟随模式
         {
-            PID_SingleCalc(&sysCtrl.rotatePID, 0, sysCtrl.gimbalData.relativeAngle);
+            sysCtrl.rotatePID.SingleCalc(0, sysCtrl.gimbalData.relativeAngle);
             sysCtrl.chassisData.vw = sysCtrl.rotatePID.output;
         }
         else if(sysCtrl.mode==SYS_SPIN_MODE)//小陀螺模式
@@ -177,7 +178,7 @@ void Sys_Gimbal_RotateCallback(const char* name, SoftBusFrame* frame, void* bind
     {
         if(!Bus_CheckMapKeys(frame,{"x","y"}))
             return;
-            // FIXME:鼠标能打多少量未知
+        // FIXME:鼠标能打多少量未知
         // sysCtrl.gimbalData.targetYaw +=*(int16_t*)Bus_GetMapValue(frame,"x");
         // sysCtrl.gimbalData.targetPitch +=*(int16_t*)Bus_GetMapValue(frame,"y"); 
     }
@@ -188,7 +189,7 @@ void Sys_Gimbal_RotateCallback(const char* name, SoftBusFrame* frame, void* bind
         // Yaw：【1 / 660 * 30 = 0.04545】（遥控器满杆量时，期望云台能转到偏移角30度位置）
         // Pitch：【1 / 660 * 10 = 0.01515】（满杆量时相对转动10度）//FIXME
         sysCtrl.gimbalData.targetYaw = Bus_GetMapValue(frame,"x").U16 * 0.045;
-        sysCtrl.gimbalData.targetPitch = Bus_GetMapValue(frame,"y").U16 *0.015; 
+        sysCtrl.gimbalData.targetPitch = Bus_GetMapValue(frame,"y").U16 * 0.015; 
     }
     else if(!strcmp(name,"/gimbal/yaw/relative-angle"))
     {
@@ -262,19 +263,19 @@ void Sys_Shoot_Callback(const char* name, SoftBusFrame* frame, void* bindData)
     {
         if(!Bus_IsMapKeyExist(frame,"left"))
             return;
-        Bus_RemoteCall("/shooter/mode",{{"mode", {"once"}}});  //点射
+        Bus_RemoteCall("/shooter/mode",{{"mode", {.Str = "once"}}});  //点射
     }
     else if(!strcmp(name,"/rc/key/on-long-press") && !sysCtrl.rockerCtrl)
     {
         if(!Bus_IsMapKeyExist(frame,"left"))
             return;
-        Bus_RemoteCall("/shooter/mode",{{"mode", {"continue"}}, {"interval-time", {.U32 = 100}}}); //连发
+        Bus_RemoteCall("/shooter/mode",{{"mode", {.Str = "continue"}}, {"interval-time", {.U32 = 100}}}); //连发
     }
     else if(!strcmp(name,"/rc/key/on-up") && !sysCtrl.rockerCtrl)
     {
         if(!Bus_IsMapKeyExist(frame,"left"))
             return;
-        Bus_RemoteCall("/shooter/mode",{{"mode", {"idle"}}}); //连发
+        Bus_RemoteCall("/shooter/mode", {{"mode", {.Str = "idle"}}}); //连发
     }
     else if(!strcmp(name,"/rc/wheel") && sysCtrl.rockerCtrl)//遥控器控制
     {
@@ -283,7 +284,7 @@ void Sys_Shoot_Callback(const char* name, SoftBusFrame* frame, void* bindData)
         int16_t wheel = Bus_GetMapValue(frame, "value").I16;
 
         if(wheel > 600)
-            Bus_RemoteCall("/shooter/mode", {{"mode", {"once"}}}); //点射
+            Bus_RemoteCall("/shooter/mode", {{"mode", {.Str = "once"}}}); //点射
     }
 }
 

@@ -1,6 +1,6 @@
 
 # 软总线源码列表
-file(GLOB SOFTBUS_SRC *.c)
+file(GLOB SOFTBUS_SRC *.c *.cpp)
 set(SOFTBUS_MODULE_SRC ${SOFTBUS_SRC} PARENT_SCOPE)
 
 # 添加包含目录

@@ -2,6 +2,11 @@
 #define _SOFTBUS_H_
 
 #ifdef __cplusplus
+#include <tuple>
+#include "softbus_cppapi.h"
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -15,15 +20,15 @@ extern "C" {
     #define CURLY_INIT(name) (name)
 #endif
 
-typedef struct{
+typedef struct _SoftBusFrame {
 	void* data;
 	uint16_t size;
-}SoftBusFrame;//数据帧
+} SoftBusFrame; // 数据帧
 
-typedef struct{
+typedef struct {
     char* key;
 	void* data;
-}SoftBusItem;//数据字段
+} SoftBusItem;//数据字段
 
 typedef union _SoftBusGenericData {
 	void* Ptr;
@@ -53,11 +58,11 @@ typedef void (*SoftBusBroadcastReceiver)(const char* name, SoftBusFrame* frame, 
 typedef bool (*SoftBusRemoteFunction)(const char* name, SoftBusFrame* frame, void* bindData);//远程函数回调函数指针
 
 //操作函数声明(不直接调用，应使用下方define定义的接口)
-int8_t _Bus_MultiRegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, uint16_t namesNum, char** names);
-void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, SoftBusItemX* items);
-void _Bus_BroadcastSendList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, SoftBusGenericData list[]);
-bool _Bus_RemoteCallMap(const char* name, uint16_t itemNum, SoftBusItemX* items);
-uint8_t _Bus_CheckMapKeys(SoftBusFrame* frame, uint16_t keysNum, char** keys);
+int8_t _Bus_MultiRegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, uint16_t namesNum, const char* const * names);
+void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, const SoftBusItemX* items);
+void _Bus_BroadcastSendList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, const SoftBusGenericData list[]);
+bool _Bus_RemoteCallMap(const char* name, uint16_t itemNum, const SoftBusItemX* items);
+uint8_t _Bus_CheckMapKeys(SoftBusFrame* frame, uint16_t keysNum, const char* const * keys);
 
 /*
 	@brief 订阅软总线上的一个广播
@@ -76,7 +81,9 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	@retval 0:成功 -1:堆空间不足 -2:参数为空
 	@example Bus_MultiRegisterReceiver(NULL, callback, {"name1", "name2"});
 */
+#ifndef __cplusplus
 #define Bus_MultiRegisterReceiver(bindData, callback,...) _Bus_MultiRegisterReceiver((bindData),(callback),(sizeof(CURLY_INIT(char*[])__VA_ARGS__)/sizeof(char*)),(CURLY_INIT(char*[])__VA_ARGS__))
+#endif
 
 /*
 	@brief 广播映射表数据帧
@@ -85,10 +92,7 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	@retval void
 	@example Bus_BroadcastSend("name", {{"key1", {data1}}, {"key2", {data2}}});
 */
-#ifdef _MSC_VER
-// 由于MSVC的奇葩错误提示系统，MSVC环境下C++无法使用原语法，只能为单元测试另开门路
-#define Bus_BroadcastSend(name,...) _Bus_BroadcastSendMap((name),(sizeof(__VA_ARGS__)/sizeof(SoftBusItemX)),(__VA_ARGS__))
-#else
+#ifndef __cplusplus
 #define Bus_BroadcastSend(name,...) _Bus_BroadcastSendMap((name),(sizeof((SoftBusItemX[])__VA_ARGS__)/sizeof(SoftBusItemX)),((SoftBusItemX[])__VA_ARGS__))
 #endif
 
@@ -99,9 +103,7 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	@retval void
 	@example float value1,value2; Bus_FastBroadcastSend(handle, {{.F32 = value1}, {.F32 = value2}});
 */
-#ifdef _MSC_VER
-#define Bus_FastBroadcastSend(handle,...) _Bus_BroadcastSendList((handle),(sizeof(__VA_ARGS__)/sizeof(SoftBusGenericData)),(__VA_ARGS__))
-#else
+#ifndef __cplusplus
 #define Bus_FastBroadcastSend(handle,...) _Bus_BroadcastSendList((handle),(sizeof((SoftBusGenericData[])__VA_ARGS__)/sizeof(SoftBusGenericData)),((SoftBusGenericData[])__VA_ARGS__))
 #endif
 
@@ -121,7 +123,9 @@ int8_t Bus_RegisterRemoteFunc(void* bindData, SoftBusRemoteFunction callback, co
 	@retval true:成功 false:失败
 	@example Bus_RemoteCall("name", {{"key1", {data1}}, {"key2", {data2}}});
 */
-#define Bus_RemoteCall(name,...) _Bus_RemoteCallMap((name),(sizeof(CURLY_INIT(SoftBusItemX[])__VA_ARGS__)/sizeof(SoftBusItemX)),(CURLY_INIT(SoftBusItemX[])__VA_ARGS__))
+#ifndef __cplusplus
+#define Bus_RemoteCall(name,...) _Bus_RemoteCallMap((name),(sizeof(__VA_ARGS__)/sizeof(SoftBusItemX)),(CURLY_INIT(SoftBusItemX[])__VA_ARGS__))
+#endif
 
 /*
 	@brief 查找映射表数据帧中的数据字段
@@ -147,7 +151,9 @@ const SoftBusItemX* Bus_GetMapItem(SoftBusFrame* frame, const char* key);
 	@retval 0:任意一个key不存在 1:所有key都存在
 	@example if(Bus_CheckMapKeys(frame, {"key1", "key2", "key3"})) { ... }
 */
+#ifndef __cplusplus
 #define Bus_CheckMapKeys(frame,...) _Bus_CheckMapKeys((frame),(sizeof(CURLY_INIT(char*[])__VA_ARGS__)/sizeof(char*)),(CURLY_INIT(char*[])__VA_ARGS__))
+#endif
 
 /*
 	@brief 获取映射表数据帧中指定字段的值

@@ -1,6 +1,6 @@
 
 # 递归获取所有源码文件
-file(GLOB_RECURSE TOOLS_SRC *.c)
+file(GLOB_RECURSE TOOLS_SRC *.c *.cpp)
 
 # 传递源码文件到上一级 CMakeLists 作用域
 set(TOOLS_MODULE_SRC ${TOOLS_SRC} PARENT_SCOPE)

@@ -92,12 +92,12 @@ void INS_Init(INS* ins, ConfItem* dict)
 	ins->taskInterval = Conf_GetValue(dict,"task-interval",uint16_t,10);
 
 	// ins->filter = Filter_Init(Conf_GetPtr(dict, "filter", ConfItem));
-	PID_Init(&ins->tmpPID, Conf_GetPtr(dict, "tmp-pid", ConfItem));
+	ins->tmpPID.Init(Conf_GetPtr(dict, "tmp-pid", ConfItem));
 
-	char* temp = Conf_GetPtr(dict, "name", char);
+	auto temp = Conf_GetValue(dict, "name", const char *, nullptr);
 	temp = temp ? temp : "ins";
 	uint8_t len = strlen(temp);
-	ins->eulerAngleName = pvPortMalloc(len + 13+ 1); //13为"/   /euler-angle"的长度，1为'\0'的长度
+	ins->eulerAngleName = (char*)pvPortMalloc(len + 13 + 1); //13为"/   /euler-angle"的长度，1为'\0'的长度
 	sprintf(ins->eulerAngleName, "/%s/euler-angle", temp);
 
 	while(BMI088_AccelInit(ins->spiX) || BMI088_GyroInit(ins->spiX))
@@ -115,9 +115,10 @@ void INS_Init(INS* ins, ConfItem* dict)
 //软件定时器回调函数
 void INS_TmpPIDTimerCallback(void const *argument)
 {
-	INS* ins = pvTimerGetTimerID((TimerHandle_t)argument);
-	PID_SingleCalc(&ins->tmpPID, ins->targetTmp, ins->imu.tmp);
-	ins->tmpPID.output = ins->tmpPID.output > 0? ins->tmpPID.output : 0;
+	INS* ins = (INS*)pvTimerGetTimerID((TimerHandle_t)argument);
+	ins->tmpPID.SingleCalc(ins->targetTmp, ins->imu.tmp);
+	ins->tmpPID.output = (ins->tmpPID.output > 0) ? (ins->tmpPID.output) : 0;
+	
 	Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = ins->timX}},
 										 {"channel-x", {.U8 = ins->channelX}},
 										 {"duty", {.F32 = ins->tmpPID.output}}});

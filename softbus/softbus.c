@@ -96,7 +96,7 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	return Vector_PushBack(hashList, ((HashNode){hash, receiverV, remoteV}));
 }
 
-int8_t _Bus_MultiRegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, uint16_t namesNum, char** names)
+int8_t _Bus_MultiRegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, uint16_t namesNum, const char* const * names)
 {
 	if(!names || !namesNum || !callback)
 		return -2;
@@ -153,7 +153,7 @@ void _Bus_BroadcastSend(const char* name, SoftBusFrame* frame)
 	}
 }
 
-void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, SoftBusItemX* items)
+void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, const SoftBusItemX* items)
 {
 	if(!hashList.data ||!name || !itemNum || !items)
 		return;
@@ -161,7 +161,7 @@ void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, SoftBusItemX* ite
 	_Bus_BroadcastSend(name, &frame);
 }
 
-void _Bus_BroadcastSendList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, SoftBusGenericData list[])
+void _Bus_BroadcastSendList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, const SoftBusGenericData list[])
 {
 	if(!hashList.data || !listNum || !list)
 		return;
@@ -262,7 +262,7 @@ bool _Bus_RemoteCall(const char* name, SoftBusFrame* frame)
 	return false;
 }
 
-bool _Bus_RemoteCallMap(const char* name, uint16_t itemNum, SoftBusItemX* items)
+bool _Bus_RemoteCallMap(const char* name, uint16_t itemNum, const SoftBusItemX* items)
 {
 	if(!hashList.data ||!name || !itemNum || !items)
 		return false;
@@ -270,7 +270,7 @@ bool _Bus_RemoteCallMap(const char* name, uint16_t itemNum, SoftBusItemX* items)
 	return _Bus_RemoteCall(name, &frame);
 }
 
-uint8_t _Bus_CheckMapKeys(SoftBusFrame* frame, uint16_t keysNum, char** keys)
+uint8_t _Bus_CheckMapKeys(SoftBusFrame* frame, uint16_t keysNum, const char* const* keys)
 {
 	if(!frame || !keys || !keysNum)
 		return 0;

@@ -1,42 +1,58 @@
 /****************PID运算****************/
 
-#include "../include/pid.h"
+#include "pid.h"
+#include "config.h"
 
-
-//初始化pid参数
-PID::PID(ConfItem* conf) :
-        kp(Conf_GetValue(conf, "p", float, 0)),
-        ki(ki=Conf_GetValue(conf, "i", float, 0)),
-        kd(Conf_GetValue(conf, "d", float, 0)),
-        maxIntegral(Conf_GetValue(conf, "max-i", float, 0)),
-        maxOutput(Conf_GetValue(conf, "max-out", float, 0)),
-        deadzone(0)
+// 默认构造函数
+PID::PID()
 {
-
+    kp = ki = kd = 0;
+    maxIntegral = maxOutput = 0;
+    deadzone = 0;
 }
 
-//单级pid计算
-void PID::SingleCalc(float reference, float feedback)
+// 以配置项构造
+PID::PID(ConfItem* conf)
 {
-    //更新数据
+    // 调用初始化函数
+    Init(conf);
+}
+
+// 初始化PID参数
+void PID::Init(ConfItem* conf)
+{
+    kp = Conf_GetValue(conf, "p", float, 0);
+    ki = Conf_GetValue(conf, "i", float, 0);
+    kd = Conf_GetValue(conf, "d", float, 0);
+    maxIntegral = Conf_GetValue(conf, "max-i", float, 0);
+    maxOutput = Conf_GetValue(conf, "max-out", float, 0);
+    deadzone = 0;
+}
+
+// 单级PID计算
+float PID::SingleCalc(float reference, float feedback)
+{
+    // 更新数据
     lastError = error;
-    if(ABS(reference - feedback) < deadzone)//若误差在死区内则error直接置0
+    if(ABS(reference - feedback) < deadzone) // 若误差在死区内则error直接置0
         error = 0;
     else
         error = reference - feedback;
-    //计算微分
+    // 计算微分
     output = (error - lastError) * kd;
-    //计算比例
+    // 计算比例
     output += error * kp;
-    //计算积分
+    // 计算积分
     integral += error * ki;
-    LIMIT(integral, -maxIntegral, maxIntegral);//积分限幅
+    LIMIT(integral, -maxIntegral, maxIntegral); // 积分限幅
     output += integral;
-    //输出限幅
+    // 输出限幅
     LIMIT(output, -maxOutput, maxOutput);
+
+    return output;
 }
 
-//前馈pid计算
+// 前馈pid计算
 /*
 当逻辑不复杂，没必要或不想给函数起名的时候，我们会推荐用Lambda表达式来代替函数指针Lambda表达式的结构
 [capture-list] (params) -> ret(optional) { body }
@@ -54,37 +70,31 @@ body: 函数的具体逻辑
  [] (int a) ->float { return (a * 10);};
  a * 10可以改成自己所需要的数学模型，然后将lambda表达式整体传入FeedbackCalc函数中，
 */
-void PID::FeedbackCalc(float reference, float feedback, const std::function<float(float)>& lambda)
+float PID::FeedforwardCalc(float reference, float feedback, const std::function<float(float)> feedforward)
 {
-    //更新数据
+    // 更新数据
     lastError = error;
-    if(ABS(reference - feedback) < deadzone)//若误差在死区内则error直接置0
+    if (ABS(reference - feedback) < deadzone) // 若误差在死区内则error直接置0
         error = 0;
     else
         error = reference - feedback;
-    //计算微分
+    // 计算微分
     output = (error - lastError) * kd;
-    //计算比例
+    // 计算比例
     output += error * kp;
-    //计算积分
+    // 计算积分
     integral += error * ki;
-    LIMIT(integral, -maxIntegral, maxIntegral);//积分限幅
+    LIMIT(integral, -maxIntegral, maxIntegral); // 积分限幅
     output += integral;
-    //加入前馈
-    output += lambda(reference);
-    //输出限幅
+    // 加入前馈
+    output += feedforward(reference);
+    // 输出限幅
     LIMIT(output, -maxOutput, maxOutput);
+
+    return output;
 }
 
-//串级pid计算
-void CascadePID::CascadeCalc(float angleRef,float angleFdb,float speedFdb)
-{
-    outer.SingleCalc(angleRef, angleFdb);//计算外环(角度环)
-    inner.SingleCalc(outer.output, speedFdb);//计算内环(速度环)
-    output = inner.output;
-}
-
-//清空一个pid的历史数据
+// 清空一个pid的历史数据
 void PID::Clear()
 {
     error = 0;
@@ -93,20 +103,32 @@ void PID::Clear()
     output = 0;
 }
 
-//重新设定pid输出限幅
-void PID::SetMaxOutput(float maxOutput)
+// 以配置项构造
+CascadePID::CascadePID(ConfItem* conf)
 {
-    this->maxOutput = maxOutput;
+    Init(conf);
 }
 
-void PID::SetMaxIntegral(float maxIntegral)
+// 用配置项初始化内外两环。默认内环配置键名"inner"，外环键名"outer"。
+void CascadePID::Init(ConfItem* conf)
 {
-    this->maxIntegral = maxIntegral;
+    inner.Init(Conf_GetPtr(conf, "inner", ConfItem));
+    outer.Init(Conf_GetPtr(conf, "outer", ConfItem));
 }
 
-//设置PID死区
-void PID::SetDeadzone(float deadzone)
+// 串级pid计算
+float CascadePID::CascadeCalc(float angleRef,float angleFdb,float speedFdb)
 {
-    this->deadzone = deadzone;
+    outer.SingleCalc(angleRef, angleFdb); // 计算外环(角度环)
+    inner.SingleCalc(outer.output, speedFdb); // 计算内环(速度环)
+    output = inner.output;
+
+    return output;
 }
 
+// 清空串级PID
+void CascadePID::Clear()
+{
+    outer.Clear();
+    inner.Clear();
+}
