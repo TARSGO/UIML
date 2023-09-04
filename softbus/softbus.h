@@ -2,7 +2,6 @@
 #define _SOFTBUS_H_
 
 #ifdef __cplusplus
-#include <tuple>
 #include "softbus_cppapi.h"
 #endif
 
@@ -152,7 +151,7 @@ const SoftBusItemX* Bus_GetMapItem(SoftBusFrame* frame, const char* key);
 	@example if(Bus_CheckMapKeys(frame, {"key1", "key2", "key3"})) { ... }
 */
 #ifndef __cplusplus
-#define Bus_CheckMapKeys(frame,...) _Bus_CheckMapKeys((frame),(sizeof(CURLY_INIT(char*[])__VA_ARGS__)/sizeof(char*)),(CURLY_INIT(char*[])__VA_ARGS__))
+#define Bus_CheckMapKeys(frame,...) _Bus_CheckMapKeys((frame),(sizeof(CURLY_INIT(char*[])__VA_ARGS__)/sizeof(char*)),(CURLY_INIT(const char* const[])__VA_ARGS__))
 #endif
 
 /*

@@ -6,11 +6,11 @@
     C620等电机通讯报文中使用了大端序的16位整数。在小端序的STM32上使用其数值前，需要调换字节序。
 */
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <stdint.h>
 
 // 调换16位字节序
 inline uint16_t SwapByteorder16Bit(uint16_t input)
