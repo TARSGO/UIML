@@ -11,7 +11,7 @@
 typedef struct _Gimbal
 {
 	//yaw、pitch电机
-	Motor* motors[2];
+	BasicMotor* motors[2];
 
 	uint16_t zeroAngle[2];	//零点
 	float relativeAngle;	//云台偏离角度
@@ -51,8 +51,8 @@ void Gimbal_TaskCallback(void const * argument)
 	Gimbal_TotalAngleInit(&gimbal); //计算云台零点
 
 	//计算好云台零点后，更改电机模式，imu反馈做角度外环电机速度反馈做内环
-	gimbal.motors[0]->changeMode(gimbal.motors[0], MOTOR_SPEED_MODE);
-	gimbal.motors[1]->changeMode(gimbal.motors[1], MOTOR_SPEED_MODE);
+	gimbal.motors[0]->SetMode(MOTOR_SPEED_MODE);
+	gimbal.motors[1]->SetMode(MOTOR_SPEED_MODE);
 
 	GlobalGimbal = &gimbal;
 
@@ -62,15 +62,15 @@ void Gimbal_TaskCallback(void const * argument)
 		gimbal.imu.pid[0].SingleCalc(gimbal.angle[0], gimbal.relativeAngle/*gimbal.imu.totalEulerAngle[0]*/);
 		gimbal.imu.pid[0].SingleCalc(gimbal.angle[1], gimbal.imu.totalEulerAngle[1]);
 
-		gimbal.motors[0]->setTarget(gimbal.motors[0], gimbal.imu.pid[0].output);
-		gimbal.motors[1]->setTarget(gimbal.motors[1], gimbal.imu.pid[1].output);
+		gimbal.motors[0]->SetTarget(gimbal.imu.pid[0].output);
+		gimbal.motors[1]->SetTarget(gimbal.imu.pid[1].output);
 
 		//解算云台距离零点的角度
-		gimbal.relativeAngle = gimbal.motors[0]->getData(gimbal.motors[0], "totalAngle");
+		gimbal.relativeAngle = gimbal.motors[0]->GetData(TotalAngle);
 		int16_t turns = (int32_t)gimbal.relativeAngle / 360; //转数
 		turns = (turns < 0) ? (turns - 1) : turns; //如果是负数多减一圈使偏离角变成正数
 		gimbal.relativeAngle -= turns * 360; //0-360度
-		Bus_BroadcastSend(gimbal.yawRelAngleName, {{"angle", &gimbal.relativeAngle}}); // 广播云台偏离角
+		Bus_BroadcastSend(gimbal.yawRelAngleName, {{"angle", {.F32 = gimbal.relativeAngle}}}); // 广播云台偏离角
 		osDelay(gimbal.taskInterval);
 	}
 }
@@ -85,8 +85,8 @@ void Gimbal_Init(Gimbal* gimbal, ConfItem* dict)
 	gimbal->zeroAngle[1] = Conf_GetValue(dict, "zero-pitch", uint16_t, 0);
 
 	//云台电机初始化
-	gimbal->motors[0] = Motor_Init(Conf_GetPtr(dict, "motor-yaw", ConfItem));
-	gimbal->motors[1] = Motor_Init(Conf_GetPtr(dict, "motor-pitch", ConfItem));
+	gimbal->motors[1] = BasicMotor::Create(Conf_GetPtr(dict, "motor-pitch", ConfItem));
+	gimbal->motors[0] = BasicMotor::Create(Conf_GetPtr(dict, "motor-yaw", ConfItem));
 
 	gimbal->imu.pid[0].Init(Conf_GetPtr(dict, "yaw-imu-pid", ConfItem));
 	gimbal->imu.pid[1].Init(Conf_GetPtr(dict, "pitch-imu-pid", ConfItem));
@@ -149,7 +149,7 @@ void Gimbal_StopCallback(const char* name, SoftBusFrame* frame, void* bindData) 
 	Gimbal* gimbal = (Gimbal*)bindData;
 	for(uint8_t i = 0; i<2; i++)
 	{
-		gimbal->motors[i]->stop(gimbal->motors[i]);
+		gimbal->motors[i]->EmergencyStop();
 	}
 }
 
@@ -177,13 +177,13 @@ void Gimbal_TotalAngleInit(Gimbal* gimbal)
 	for(uint8_t i = 0; i<2; i++)
 	{
 		float angle = 0;
-		angle = gimbal->motors[i]->getData(gimbal->motors[i], "angle");
+		angle = gimbal->motors[i]->GetData(CurrentAngle);
 		angle = angle - (float)gimbal->zeroAngle[i]*360/8191;  //计算距离零点的角度  
 		if(angle < -180)  //将角度转化到-180~180度，这样可以使云台以最近距离旋转至零点
 			angle += 360;
 		else if(angle > 180)
 			angle -= 360;
 		gimbal->imu.totalEulerAngle[i] = angle;
-		gimbal->motors[i]->initTotalAngle(gimbal->motors[i], angle); //设置电机的起始角度
+		gimbal->motors[i]->SetTotalAngle(angle); //设置电机的起始角度
 	}	
 }

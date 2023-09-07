@@ -5,6 +5,8 @@
 #include "cmsis_os.h"
 #include "stm32f4xx.h"
 #include "arm_math.h"
+#include <stdio.h>
+#include <string.h>
 
 #ifndef LIMIT
 #define LIMIT(x,min,max) (x)=(((x)<=(min))?(min):(((x)>=(max))?(max):(x)))
@@ -23,7 +25,7 @@ typedef struct _Chassis
 		float offsetY;
 	}info;
 	//4个电机
-	Motor* motors[4];
+	BasicMotor* motors[4];
 	//底盘移动信息
 	struct Move
 	{
@@ -96,7 +98,7 @@ void Chassis_TaskCallback(void const * argument)
 		
 		for(uint8_t i = 0; i<4; i++)
 		{
-			chassis.motors[i]->setTarget(chassis.motors[i], wheelRPM[i]);
+			chassis.motors[i]->SetTarget(wheelRPM[i]);
 		}
 		
 		osDelay(chassis.taskInterval);
@@ -123,26 +125,26 @@ void Chassis_Init(Chassis* chassis, ConfItem* dict)
 	Slope_Init(&chassis->move.xSlope, CHASSIS_ACC2SLOPE(chassis->taskInterval, xAcc),0);
 	Slope_Init(&chassis->move.ySlope, CHASSIS_ACC2SLOPE(chassis->taskInterval, yAcc),0);
 	//底盘电机初始化
-	chassis->motors[0] = Motor_Init(Conf_GetPtr(dict, "motor-fl", ConfItem));
-	chassis->motors[1] = Motor_Init(Conf_GetPtr(dict, "motor-fr", ConfItem));
-	chassis->motors[2] = Motor_Init(Conf_GetPtr(dict, "motor-bl", ConfItem));
-	chassis->motors[3] = Motor_Init(Conf_GetPtr(dict, "motor-br", ConfItem));
+	chassis->motors[0] = BasicMotor::Create(Conf_GetPtr(dict, "motor-fl", ConfItem));
+	chassis->motors[1] = BasicMotor::Create(Conf_GetPtr(dict, "motor-fr", ConfItem));
+	chassis->motors[2] = BasicMotor::Create(Conf_GetPtr(dict, "motor-bl", ConfItem));
+	chassis->motors[3] = BasicMotor::Create(Conf_GetPtr(dict, "motor-br", ConfItem));
 	//设置底盘电机为速度模式
 	for(uint8_t i = 0; i<4; i++)
 	{
-		chassis->motors[i]->changeMode(chassis->motors[i], MOTOR_SPEED_MODE);
+		chassis->motors[i]->SetMode(MOTOR_SPEED_MODE);
 	}
 	//软总线广播、远程函数name重映射
-	char* temp = Conf_GetPtr(dict, "name", char);
+	const char* temp = Conf_GetValue(dict, "name", const char*, NULL);
 	temp = temp ? temp : "chassis";
 	uint8_t len = strlen(temp);
-	chassis->speedName = pvPortMalloc(len + 7+ 1); //7为"/   /speed"的长度，1为'\0'的长度
+	chassis->speedName = (char*)pvPortMalloc(len + 7 + 1); //7为"/   /speed"的长度，1为'\0'的长度
 	sprintf(chassis->speedName, "/%s/speed", temp);
 	
-	chassis->accName = pvPortMalloc(len + 5+ 1); //5为"/   /acc"的长度，1为'\0'的长度
+	chassis->accName = (char*)pvPortMalloc(len + 5 + 1); //5为"/   /acc"的长度，1为'\0'的长度
 	sprintf(chassis->accName, "/%s/acc", temp);
 	
-	chassis->relAngleName = pvPortMalloc(len + 16+ 1); //16为"/   /relative-angle"的长度，1为'\0'的长度
+	chassis->relAngleName = (char*)pvPortMalloc(len + 16 + 1); //16为"/   /relative-angle"的长度，1为'\0'的长度
 	sprintf(chassis->relAngleName, "/%s/relative-angle", temp);
 	
 	//注册远程函数
@@ -165,19 +167,19 @@ bool Chassis_SetSpeedCallback(const char* name, SoftBusFrame* frame, void* bindD
 	Chassis* chassis = (Chassis*)bindData;
 	if(Bus_IsMapKeyExist(frame, "vx"))
 	{
-		float vx = *(float*)Bus_GetMapValue(frame, "vx");
+		float vx = Bus_GetMapValue(frame, "vx").F32;
 		LIMIT(vx, -chassis->move.maxVx, chassis->move.maxVx);
 		Slope_SetTarget(&chassis->move.xSlope, vx);
 	}
 	if(Bus_IsMapKeyExist(frame, "vy"))
 	{
-		float vy = *(float*)Bus_GetMapValue(frame, "vy");
+		float vy = Bus_GetMapValue(frame, "vy").F32;
 		LIMIT(vy, -chassis->move.maxVy, chassis->move.maxVy);
 		Slope_SetTarget(&chassis->move.ySlope, vy);
 	}
 	if(Bus_IsMapKeyExist(frame, "vw"))
 	{
-		chassis->move.vw = *(float*)Bus_GetMapValue(frame, "vw");
+		chassis->move.vw = Bus_GetMapValue(frame, "vw").F32;
 		LIMIT(chassis->move.vw, -chassis->move.maxVw, chassis->move.maxVw);
 	}
 	return true;
@@ -187,9 +189,9 @@ bool Chassis_SetAccCallback(const char* name, SoftBusFrame* frame, void* bindDat
 {
 	Chassis* chassis = (Chassis*)bindData;
 	if(Bus_IsMapKeyExist(frame, "ax"))
-		Slope_SetStep(&chassis->move.xSlope, CHASSIS_ACC2SLOPE(chassis->taskInterval, *(float*)Bus_GetMapValue(frame, "ax")));
+		Slope_SetStep(&chassis->move.xSlope, CHASSIS_ACC2SLOPE(chassis->taskInterval, Bus_GetMapValue(frame, "ax").F32));
 	if(Bus_IsMapKeyExist(frame, "ay"))
-		Slope_SetStep(&chassis->move.ySlope, CHASSIS_ACC2SLOPE(chassis->taskInterval, *(float*)Bus_GetMapValue(frame, "ay")));
+		Slope_SetStep(&chassis->move.ySlope, CHASSIS_ACC2SLOPE(chassis->taskInterval, Bus_GetMapValue(frame, "ay").F32));
 	return true;
 }
 //设置底盘坐标系分离角度回调
@@ -197,7 +199,7 @@ bool Chassis_SetRelativeAngleCallback(const char* name, SoftBusFrame* frame, voi
 {
 	Chassis* chassis = (Chassis*)bindData;
 	if(Bus_IsMapKeyExist(frame, "angle"))
-		chassis->relativeAngle = *(float*)Bus_GetMapValue(frame, "angle");
+		chassis->relativeAngle = Bus_GetMapValue(frame, "angle").F32;
 	return true;
 }
 //底盘急停回调
@@ -206,6 +208,6 @@ void Chassis_StopCallback(const char* name, SoftBusFrame* frame, void* bindData)
 	Chassis* chassis = (Chassis*)bindData;
 	for(uint8_t i = 0; i<4; i++)
 	{
-		chassis->motors[i]->stop(chassis->motors[i]);
+		chassis->motors[i]->EmergencyStop();
 	}
 }

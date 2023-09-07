@@ -1,4 +1,4 @@
-#include "bmi088_driver.h"
+#include "gyroscope.h"
 #include "cmsis_os.h"
 #include "softbus.h"
 #include "config.h"
@@ -24,7 +24,7 @@ typedef struct
 	uint8_t timX;
 	uint8_t channelX;
 
-	PID tmpPID;
+	Bmi088 gyro; // TODO: 工厂创建
 	Filter *filter;
 
 	uint16_t taskInterval; //任务执行间隔
@@ -63,7 +63,11 @@ void INS_TaskCallback(void const * argument)
   /* Infinite loop */
 	while(1)
 	{
-		BMI088_ReadData(ins.spiX, ins.imu.gyro,ins.imu.accel, &ins.imu.tmp);
+		ins.gyro.Acquire(); // 采样
+		ins.gyro.GetGyroscopeData(ins.imu.gyro[0], ins.imu.gyro[1], ins.imu.gyro[2]);
+		ins.gyro.GetAccelerometerData(ins.imu.accel[0], ins.imu.accel[1], ins.imu.accel[2]);
+		ins.imu.tmp = ins.gyro.GetTemperature();
+
 		for(uint8_t i=0;i<3;i++)
 			ins.imu.gyro[i] -= ins.imu.gyroOffset[i];
 
@@ -77,7 +81,7 @@ void INS_TaskCallback(void const * argument)
 		ins.pitch = ins.pitch/PI*180;
 		ins.roll = ins.roll/PI*180;
 		//发布数据
-		Bus_BroadcastSend(ins.eulerAngleName, {{"yaw",&ins.yaw}, {"pitch",&ins.pitch}, {"roll",&ins.roll}});
+		Bus_BroadcastSend(ins.eulerAngleName, {{"yaw", {.F32 = ins.yaw}}, {"pitch", {.F32 = ins.pitch}}, {"roll", {.F32 = ins.roll}}});
 		osDelay(ins.taskInterval);
 	}
   /* USER CODE END IMU */
@@ -85,14 +89,10 @@ void INS_TaskCallback(void const * argument)
 
 void INS_Init(INS* ins, ConfItem* dict)
 {
-	ins->spiX = Conf_GetValue(dict, "spi-x", uint8_t, 0);
-	ins->targetTmp = Conf_GetValue(dict, "target-temperature", float, 40);
-	ins->timX = Conf_GetValue(dict,"tim-x",uint8_t,10);
-	ins->channelX = Conf_GetValue(dict,"channel-x",uint8_t,1);
 	ins->taskInterval = Conf_GetValue(dict,"task-interval",uint16_t,10);
 
 	// ins->filter = Filter_Init(Conf_GetPtr(dict, "filter", ConfItem));
-	ins->tmpPID.Init(Conf_GetPtr(dict, "tmp-pid", ConfItem));
+	//ins->tmpPID.Init(Conf_GetPtr(dict, "tmp-pid", ConfItem));
 
 	auto temp = Conf_GetValue(dict, "name", const char *, nullptr);
 	temp = temp ? temp : "ins";
@@ -100,12 +100,11 @@ void INS_Init(INS* ins, ConfItem* dict)
 	ins->eulerAngleName = (char*)pvPortMalloc(len + 13 + 1); //13为"/   /euler-angle"的长度，1为'\0'的长度
 	sprintf(ins->eulerAngleName, "/%s/euler-angle", temp);
 
-	while(BMI088_AccelInit(ins->spiX) || BMI088_GyroInit(ins->spiX))
-	{
-		osDelay(10);
-	}
-
-	BMI088_ReadData(ins->spiX, ins->imu.gyro,ins->imu.accel, &ins->imu.tmp);
+	ins->gyro.Init(dict);
+	ins->gyro.Acquire(); // 采样
+	ins->gyro.GetGyroscopeData(ins->imu.gyro[0], ins->imu.gyro[1], ins->imu.gyro[2]);
+	ins->gyro.GetAccelerometerData(ins->imu.accel[0], ins->imu.accel[1], ins->imu.accel[2]);
+	ins->imu.tmp = ins->gyro.GetTemperature();
 
 	//创建定时器进行温度pid控制
 	osTimerDef(tmp, INS_TmpPIDTimerCallback);
@@ -116,10 +115,5 @@ void INS_Init(INS* ins, ConfItem* dict)
 void INS_TmpPIDTimerCallback(void const *argument)
 {
 	INS* ins = (INS*)pvTimerGetTimerID((TimerHandle_t)argument);
-	ins->tmpPID.SingleCalc(ins->targetTmp, ins->imu.tmp);
-	ins->tmpPID.output = (ins->tmpPID.output > 0) ? (ins->tmpPID.output) : 0;
-	
-	Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = ins->timX}},
-										 {"channel-x", {.U8 = ins->channelX}},
-										 {"duty", {.F32 = ins->tmpPID.output}}});
+	ins->gyro.TemperatureControlTick();
 }

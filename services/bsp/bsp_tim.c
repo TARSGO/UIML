@@ -127,7 +127,7 @@ bool BSP_TIM_SettingCallback(const char* name, SoftBusFrame* frame, void* bindDa
 {
 	if(!Bus_IsMapKeyExist(frame,"tim-x"))
 		return false;
-	uint8_t timX = *(uint8_t *)Bus_GetMapValue(frame,"tim-x");
+	uint8_t timX = Bus_GetMapValue(frame,"tim-x").U8;
 	TIMInfo* timInfo = NULL;
 	for(uint8_t num = 0;num<timService.timNum;num++)
 	{
@@ -141,8 +141,8 @@ bool BSP_TIM_SettingCallback(const char* name, SoftBusFrame* frame, void* bindDa
 		return false;
 	if (Bus_CheckMapKeys(frame,{"channel-x","compare-value"}))
 	{
-		uint8_t	channelX = *(uint8_t*)Bus_GetMapValue(frame,"channel-x");
-		uint32_t compVal = *(uint32_t*)Bus_GetMapValue(frame,"compare-value");
+		uint8_t	channelX = Bus_GetMapValue(frame,"channel-x").U8;
+		uint32_t compVal = Bus_GetMapValue(frame,"compare-value").U32;
 		switch (channelX)
 		{
 			case 1:
@@ -163,12 +163,12 @@ bool BSP_TIM_SettingCallback(const char* name, SoftBusFrame* frame, void* bindDa
 	}
 	if(Bus_IsMapKeyExist(frame,"auto-reload"))
 	{
-		uint32_t autoReload = *(uint32_t*)Bus_GetMapValue(frame,"auto-reload");
+		uint32_t autoReload = Bus_GetMapValue(frame,"auto-reload").U32;
 		__HAL_TIM_SetAutoreload(timInfo->htim,autoReload);
 	}
 	if(Bus_IsMapKeyExist(frame,"enable"))
 	{
-		bool enable = *(bool*)Bus_GetMapValue(frame,"enable");
+		bool enable = Bus_GetMapValue(frame,"enable").Bool;
 		if(enable)
 			HAL_TIM_Base_Start_IT(timInfo->htim);
 		else
@@ -183,9 +183,9 @@ bool BSP_TIM_SetDutyCallback(const char* name, SoftBusFrame* frame, void* bindDa
 {
 	if(!Bus_CheckMapKeys(frame,{"tim-x","channel-x","duty"}))
 		return false;
-	uint8_t timX = *(uint8_t *)Bus_GetMapValue(frame,"tim-x");
-	uint8_t	channelX=*(uint8_t*)Bus_GetMapValue(frame,"channel-x");
-	float duty = *(float*)Bus_GetMapValue(frame,"duty");
+	uint8_t timX = Bus_GetMapValue(frame,"tim-x").U8;
+	uint8_t	channelX = Bus_GetMapValue(frame,"channel-x").U8;
+	float duty = Bus_GetMapValue(frame,"duty").F32;
 	LIMIT(duty,0,1);
 	for(uint8_t num = 0;num<timService.timNum;num++)
 	{
@@ -220,11 +220,11 @@ bool BSP_TIM_GetEncodeCallback(const char* name, SoftBusFrame* frame, void* bind
 {
 	if(!Bus_CheckMapKeys(frame,{"tim-x","count"}))
 		return false;
-	uint8_t timX = *(uint8_t *)Bus_GetMapValue(frame,"tim-x");
-	uint32_t *count = (uint32_t*)Bus_GetMapValue(frame,"count");
+	uint8_t timX = Bus_GetMapValue(frame,"tim-x").U8;
+	uint32_t *count = (uint32_t*)Bus_GetMapValue(frame,"count").Ptr;
 	uint32_t *autoReload=NULL; 
 	if(Bus_IsMapKeyExist(frame,"auto-reload"))
-		autoReload = (uint32_t *)Bus_GetMapValue(frame,"auto-reload");
+		autoReload = (uint32_t *)Bus_GetMapValue(frame,"auto-reload").Ptr;
 	for(uint8_t num = 0;num<timService.timNum;num++)
 	{
 		if(timX==timService.timList[num].number) //找到对应的TIM

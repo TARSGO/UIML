@@ -39,6 +39,8 @@ public:
 	virtual bool SetTotalAngle(float angle);
 	virtual float GetData(MotorDataType type);
 
+	static BasicMotor* Create(ConfItem* conf);
+
 protected:
 	MotorCtrlMode m_mode;
 };
@@ -56,6 +58,19 @@ protected:
 		uint8_t canX; // CAN设备号
 		uint8_t bufIndex; // TX方向循环缓冲区偏移量
 	} m_canInfo;
+};
+
+class DummyMotor : public BasicMotor
+{
+public:
+	DummyMotor() : BasicMotor() {};
+	virtual void Init(ConfItem* conf) override {};
+	virtual bool SetMode(MotorCtrlMode mode) override { return false; }
+	virtual void EmergencyStop() override {};
+
+	virtual bool SetTarget(float target) override { return false; }
+	virtual bool SetTotalAngle(float angle) override { return false; }
+	virtual float GetData(MotorDataType type) override { return 0.0f; }
 };
 
 class DjiCanMotor : public CanMotor

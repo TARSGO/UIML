@@ -2,6 +2,7 @@
 #include "gyroscope.h"
 #include "bmi088reg.h"
 #include "bmi088const.h"
+#include "softbus.h"
 #include <cmsis_os.h>
 
 constexpr uint8_t spiWriteAddr(uint8_t addr) { return addr & (~0x80); }
@@ -211,4 +212,14 @@ void Bmi088::GetGyroscopeData(float& vx, float& vy, float& vz)
 float Bmi088::GetTemperature()
 {
 	return m_temperature;
+}
+
+void Bmi088::TemperatureControlTick()
+{
+	m_heatingPid.SingleCalc(m_targetTemp, m_temperature);
+	m_heatingPid.output = (m_heatingPid.output > 0) ? (m_heatingPid.output) : 0;
+	
+	Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_timX}},
+										 {"channel-x", {.U8 = m_channelX}},
+										 {"duty", {.F32 = m_heatingPid.output}}});
 }

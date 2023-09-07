@@ -16,6 +16,7 @@ public:
     virtual void GetGyroscopeData(float& vx, float& vy, float& vz) = 0;
     virtual float GetTemperature() = 0;
 
+    virtual void TemperatureControlTick() = 0;
 };
 
 class Bmi088 final : public BasicGyroscope
@@ -29,6 +30,8 @@ public:
     virtual void GetAccelerometerData(float& ax, float& ay, float& az) override;
     virtual void GetGyroscopeData(float& vx, float& vy, float& vz) override;
     virtual float GetTemperature() override;
+
+    virtual void TemperatureControlTick() override;
 
 private:
     // 发送SPI命令。接收会自动存入内置缓冲区。
