@@ -3,6 +3,7 @@
 #include "cmsis_os.h"
 #include <string.h>
 #include "usart.h"
+#include "strict.h"
 
 #define UART_IRQ \
 	IRQ_FUN(USART1_IRQHandler, 1) \
@@ -104,7 +105,7 @@ void BSP_UART_Init(ConfItem* dict)
 	{
 		char confName[] = "uarts/_";
 		confName[6] = num + '0';
-		BSP_UART_InitInfo(uartService.uartList, Conf_GetPtr(dict, confName, ConfItem));
+		BSP_UART_InitInfo(&uartService.uartList[num], Conf_GetPtr(dict, confName, ConfItem));
 	}
 
 	//注册远程函数
@@ -118,12 +119,17 @@ void BSP_UART_Init(ConfItem* dict)
 void BSP_UART_InitInfo(UARTInfo* info, ConfItem* dict)
 {
 	uint8_t number = Conf_GetValue(dict, "number", uint8_t, 0);
-	info[number-1].huart = Conf_GetPtr(dict, "huart", UART_HandleTypeDef);
-	info[number-1].number = number;
-	info[number-1].recvBuffer.maxBufSize = Conf_GetValue(dict, "max-recv-size", uint16_t, 1);
+	info->number = number;
+
+	char uartName[] = "uart_";
+	uartName[5] = number + '0';
+	info->huart = Conf_GetPeriphHandle(uartName, UART_HandleTypeDef);
+	UIML_FATAL_ASSERT(info->huart != NULL, "Missing UART Device");
+
+	info->recvBuffer.maxBufSize = Conf_GetValue(dict, "max-recv-size", uint16_t, 1);
 	char name[] = "/uart_/recv";
 	name[5] = info[number-1].number + '0';
-	info[number-1].fastHandle = Bus_CreateReceiverHandle(name);
+	info->fastHandle = Bus_CreateReceiverHandle(name);
 	//初始化接收缓冲区
 	BSP_UART_InitRecvBuffer(&info[number-1]);
 	//开启uart中断

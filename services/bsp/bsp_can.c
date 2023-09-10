@@ -2,6 +2,7 @@
 #include "softbus.h"
 #include "cmsis_os.h"
 #include <string.h>
+#include "strict.h"
 #include "can.h"
 
 //CAN句柄信息
@@ -127,8 +128,13 @@ void BSP_CAN_Init(ConfItem* dict)
 //初始化CAN信息
 void BSP_CAN_InitInfo(CANInfo* info, ConfItem* dict)
 {
-	info->hcan = Conf_GetPtr(dict, "hcan", CAN_HandleTypeDef);
 	info->number = Conf_GetValue(dict, "number", uint8_t, 0);
+
+	char canName[] = "can_";
+	canName[4] = info->number + '0';
+	info->hcan = Conf_GetPeriphHandle(canName, CAN_HandleTypeDef);
+	UIML_FATAL_ASSERT(info->hcan != NULL, "Missing CAN Device")
+
 	char name[] = "/can_/recv";
 	name[4] = info->number + '0';
 	info->fastHandle = Bus_CreateReceiverHandle(name);

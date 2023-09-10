@@ -3,7 +3,7 @@
 #include <string.h>
 
 #define MOTOR_CREATE_FOR(given, type) \
-    if (strcmp((conf->name), (given)) == 0) \
+    if (strcmp(Conf_GetValue(conf, "type", const char*, ""), (given)) == 0) \
     { \
         ret = (type*)MOTOR_MALLOC_PORT(sizeof(type)); \
         ret->Init(conf); \
@@ -27,4 +27,13 @@ BasicMotor* BasicMotor::Create(ConfItem* conf)
         ret = (DummyMotor*)MOTOR_MALLOC_PORT(sizeof(DummyMotor));
 
     return ret;
+}
+
+bool BasicMotor::SetMode(MotorCtrlMode mode)
+{
+    if (m_mode == MOTOR_STOP_MODE)
+        return false;
+
+    m_mode = mode;
+    return true;
 }

@@ -54,19 +54,23 @@
 	SERVICE(uart, BSP_UART_TaskCallback, osPriorityNormal,128) \
 	SERVICE(spi, BSP_SPI_TaskCallback, osPriorityNormal,512) \
 	SERVICE(tim, BSP_TIM_TaskCallback, osPriorityNormal,256)	\
-	SERVICE(ins, INS_TaskCallback, osPriorityNormal,128)\
-	SERVICE(gimbal, Gimbal_TaskCallback, osPriorityNormal,256)\
-	SERVICE(shooter, Shooter_TaskCallback, osPriorityNormal,256)\
-	SERVICE(chassis, Chassis_TaskCallback, osPriorityNormal,256) \
+	/*SERVICE(ins, INS_TaskCallback, osPriorityNormal,128)*/\
+	/*SERVICE(gimbal, Gimbal_TaskCallback, osPriorityNormal,256)*/\
+	/*SERVICE(shooter, Shooter_TaskCallback, osPriorityNormal,256)*/\
+	/*SERVICE(chassis, Chassis_TaskCallback, osPriorityNormal,256) */\
 	SERVICE(rc, RC_TaskCallback, osPriorityNormal,256)\
-	SERVICE(judge, Judge_TaskCallback, osPriorityNormal,128) \
-	SERVICE(sys, SYS_CTRL_TaskCallback, osPriorityNormal,256)
+	/*SERVICE(judge, Judge_TaskCallback, osPriorityNormal,128) */\
+	/*SERVICE(sys, SYS_CTRL_TaskCallback, osPriorityNormal,256)*/
 //SERVICE(exti, BSP_EXTI_TaskCallback, osPriorityNormal,256) 
 
 
 /****************** 各服务配置表 ******************/
 
-ConfItem* systemConfig = CF_DICT{
+extern const char* configYaml;
+extern PeriphHandle* peripheralHandles;
+extern ConfItem* systemConfig;
+#if 0
+ = CF_DICT{
 	
 	//用户逻辑服务配置
 	{"sys",CF_DICT{
@@ -362,12 +366,12 @@ ConfItem* systemConfig = CF_DICT{
 				{"max-recv-size",IM_PTR(uint16_t,18)},
 				CF_DICT_END
 			}},
-			{"1",CF_DICT{
-				{"huart",&huart6},
-				{"number",IM_PTR(uint8_t,6)},
-				{"max-recv-size",IM_PTR(uint16_t,300)},
-				CF_DICT_END
-			}},
+			// {"1",CF_DICT{
+			// 	{"huart",&huart6},
+			// 	{"number",IM_PTR(uint8_t,6)},
+			// 	{"max-recv-size",IM_PTR(uint16_t,300)},
+			// 	CF_DICT_END
+			// }},
 			CF_DICT_END
 		}},	
 		CF_DICT_END
@@ -420,18 +424,18 @@ ConfItem* systemConfig = CF_DICT{
 	}},
 
 	//定时器服务配置
-	{"tim",CF_DICT{
-		{"tims",CF_DICT{
-			{"0",CF_DICT{
-				{"htim",&htim10},
-				{"number",IM_PTR(uint8_t,10)},
-				{"mode","pwm"},
-				CF_DICT_END
-			}}, 
-			CF_DICT_END
-		}},
-		CF_DICT_END
-	}},
+	// {"tim",CF_DICT{
+	// 	{"tims",CF_DICT{
+	// 		{"0",CF_DICT{
+	// 			{"htim",&htim10},
+	// 			{"number",IM_PTR(uint8_t,10)},
+	// 			{"mode","pwm"},
+	// 			CF_DICT_END
+	// 		}}, 
+	// 		CF_DICT_END
+	// 	}},
+	// 	CF_DICT_END
+	// }},
 
 	//外部中断服务配置
 	// {"exti",CF_DICT{
@@ -453,6 +457,6 @@ ConfItem* systemConfig = CF_DICT{
 
 	CF_DICT_END
 };
-
+#endif
 #endif
 

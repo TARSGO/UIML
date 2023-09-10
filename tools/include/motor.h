@@ -31,8 +31,8 @@ class BasicMotor
 {
 public:
 	BasicMotor() : m_mode(MOTOR_STOP_MODE) {};
-	virtual void Init(ConfItem* conf);
-	virtual bool SetMode(MotorCtrlMode mode) = 0;
+	virtual void Init(ConfItem* conf) = 0;
+	virtual bool SetMode(MotorCtrlMode mode);
 	virtual void EmergencyStop();
 
 	virtual bool SetTarget(float target);
@@ -160,6 +160,77 @@ public:
 private:
 	virtual void CanTransmit(uint16_t output) override;
 	virtual void CanRxUpdate(uint8_t* rxData) override;
+};
+
+class DcMotor : public BasicMotor
+{
+public:
+	DcMotor() : BasicMotor() {};
+	virtual void Init(ConfItem* conf);
+	virtual bool SetMode(MotorCtrlMode mode);
+	virtual void EmergencyStop();
+
+	virtual bool SetTarget(float target);
+	virtual bool SetTotalAngle(float angle);
+	virtual float GetData(MotorDataType type);
+
+	// 编码值与角度的换算（减速比*编码器一圈值/360）
+	static inline uint32_t Degree2Code(float deg, float reductionRatio, float circleEncode) { return deg * reductionRatio * circleEncode / 360.0f; }
+	static inline float Code2Degree(uint32_t code, float reductionRatio, float circleEncode) { return code / (reductionRatio * circleEncode / 360.0f); }
+
+protected:
+	PID m_speedPID; // 单级速度PID
+	CascadePID m_anglePID; // 串级（内速度外角度）PID
+
+	float m_reductionRatio; // 减速比
+	float m_circleEncode; // 倍频后编码器转一圈的最大值
+	float m_target; // 目标值（视模式可以为速度、角度（单位：度)）
+
+	uint16_t m_lastAngle; // 上一计算帧的角度（编码器值）
+	uint16_t m_totalAngle; // 电机累积转过的角度（编码器值）
+
+	uint16_t m_angle, m_speed;
+
+	struct TimInfo
+	{
+		uint8_t timX;
+		uint8_t	channelX;
+	} m_posRotateTim, m_negRotateTim, m_encodeTim;
+
+	// 定时器回调
+	static void TimerCallback(const void* argument);
+
+	// 统计角度（定时器回调调用）
+	void UpdateAngle();
+
+	// 控制器执行一次运算（PID等）
+	void ControllerUpdate(float target);
+
+private:
+	void TimerInit(ConfItem* dict); // 定时器初始化
+};
+
+class Servo : public BasicMotor
+{
+public:
+	Servo() : BasicMotor() {};
+	virtual void Init(ConfItem* conf);
+	virtual bool SetMode(MotorCtrlMode mode) { return false; }
+	virtual void EmergencyStop() { }
+
+	virtual bool SetTarget(float target);
+	virtual bool SetTotalAngle(float angle) { return false; }
+	virtual float GetData(MotorDataType type) { return 0.0f; }
+
+protected:
+	struct TimInfo
+	{
+		uint8_t timX;
+		uint8_t	channelX;
+	} m_timInfo;
+	float m_maxAngle;
+	float m_maxDuty, m_minDuty;
+	float m_target;
 };
 
 #endif

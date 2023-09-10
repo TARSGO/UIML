@@ -25,6 +25,7 @@ extern "C" {
 #include "vector.h"
 }
 #include "cmsis_os.h"
+#include "strict.h"
 
 static UimlYamlNode* CreateYamlNode() {
     UimlYamlNode* ret = (UimlYamlNode*)pvPortMalloc(sizeof(UimlYamlNode));
@@ -40,7 +41,7 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
     UimlYamlNode* out = nullptr, *current = nullptr;
     auto inputLength = strlen(input);
 
-    enum { SkipWhitespace, Key, Colon, TryValue, SkipToNewLine, ValueString, ValueNumberBegin, ValueNumberInteger, ValueNumberDecimal, ValueDict } state = SkipWhitespace;
+    enum { SkipWhitespace, Key, Colon, TryValue, Error, SkipToNewLine, ValueString, ValueNumberBegin, ValueNumberInteger, ValueNumberDecimal, ValueDict } state = SkipWhitespace;
     enum { NextKey, NextColon, NextValue, NextLine } nextElem = NextKey;
     enum { Undetermined, vtU32, vtNeg32, vtF32, vtNegF32, vtString, vtDict } valueType = Undetermined;
     int spacesToSkip = 0;
@@ -87,11 +88,11 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
                     } else if (spacesToSkip == 2) { // 少一格缩进，回退
                         goto BreakLoop;
                     } else {
-                        state = SkipToNewLine;
+                        state = Error;
                     }
                     gotoNextElem();
                 } else if (spacesToSkip < 0) {
-                    state = SkipToNewLine;
+                    state = Error;
                 } else {
                     if (decrementSpacesToSkip) spacesToSkip--;
                 }
@@ -120,7 +121,7 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
             
             case Colon:
                 if (c != ':') {
-                    state = SkipToNewLine;
+                    state = Error;
                 }
                 state = SkipWhitespace;
                 break;
@@ -130,7 +131,7 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
                 else if ((c >= '0' && c <= '9') || c == '-') { state = ValueNumberBegin; i--; }
                 else if (c == ' ') state = SkipWhitespace;
                 else if (c == '\n') state = ValueDict; 
-                else state = SkipToNewLine;
+                else state = Error;
                 break;
 
             case ValueString:
@@ -166,8 +167,7 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
                     i--;
                     state = SkipToNewLine; // 尝试结束
                 } else {
-                    // return UimlYamlInvalidValue;
-                    state = SkipToNewLine;
+                    state = Error;
                 }
                 break;
 
@@ -179,8 +179,7 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
                     i--;
                     state = SkipToNewLine; // 尝试结束
                 } else {
-                    // return UimlYamlInvalidValue;
-                    state = SkipToNewLine;
+                    state = Error;
                 }
                 break;
 
@@ -235,8 +234,14 @@ static size_t UimlParseYamlDictIndent(const char* input, UimlYamlNode** output, 
                     lasti = i;
                     break;
                 } else if (c != ' ') {
-                    // return UimlYamlInvalidValue;
+                    state = Error;
                 }
+                break;
+
+            case Error:
+                UIML_CRASH_STRICT("YAML parser error");
+                i--;
+                state = SkipToNewLine;
                 break;
         }
     }

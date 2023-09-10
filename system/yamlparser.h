@@ -5,13 +5,14 @@
 struct UimlYamlNode {
     uint32_t NameHash;
     const char* NameRef;
-    UimlYamlNode* Next;
+    struct UimlYamlNode* Next;
     union {
-        UimlYamlNode* Children;
+        struct UimlYamlNode* Children;
         uint32_t U32;
         int32_t I32;
         float F32;
         char* Str;
+        void* Ptr;
     };
 };
 
@@ -26,4 +27,21 @@ struct UimlYamlNode* UimlYamlGetValueByPath(struct UimlYamlNode* input, const ch
 
 #ifdef __cplusplus
 } // extern "C" {
+
+class UimlYamlNodeObject
+{
+public:
+    UimlYamlNodeObject() = delete;
+    UimlYamlNodeObject(UimlYamlNode* node) : m_node(node) {}
+    
+    operator UimlYamlNode*() const { return m_node; }
+    
+    UimlYamlNodeObject operator[](const char* childName) const
+    {
+        return UimlYamlNodeObject(UimlYamlGetValue(m_node, childName));
+    }
+
+private:
+    UimlYamlNode* m_node;
+};
 #endif

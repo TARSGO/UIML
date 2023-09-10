@@ -1,0 +1,7 @@
+
+# 在上级作用域设置配置模块源码列表
+file(GLOB SYSTEM_SRC *.c *.cpp)
+set(SYSTEM_MODULE_SRC ${SYSTEM_SRC} PARENT_SCOPE)
+
+# 添加包含目录
+set(SYSTEM_MODULE_INCL ${CMAKE_CURRENT_LIST_DIR} PARENT_SCOPE)

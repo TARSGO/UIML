@@ -4,6 +4,7 @@
 
 #include "gpio.h"
 #include "spi.h"
+#include "strict.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -108,8 +109,12 @@ void BSP_SPI_Init(ConfItem* dict)
 //初始化spi信息
 void BSP_SPI_InitInfo(SPIInfo* info, ConfItem* dict)
 {
-	info->hspi = Conf_GetPtr(dict, "hspi", SPI_HandleTypeDef);
 	info->number = Conf_GetValue(dict,"number",uint8_t,0);
+
+	char spiName[] = "spi_";
+	spiName[3] = info->number + '0';
+	info->hspi = Conf_GetPeriphHandle(spiName, SPI_HandleTypeDef);
+	UIML_FATAL_ASSERT(info->hspi != NULL, "Missing SPI Device");
 
 	char name[17] = {0};
 	sprintf(name, "/spi%d/recv", info->number);

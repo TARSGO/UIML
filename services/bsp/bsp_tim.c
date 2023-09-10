@@ -3,8 +3,8 @@
 #include "cmsis_os.h"
 #include <stdio.h>
 #include <string.h>
-
 #include "tim.h"
+#include "strict.h"
 
 #ifndef LIMIT
 #define LIMIT(x,min,max) (x)=(((x)<=(min))?(min):(((x)>=(max))?(max):(x)))
@@ -92,8 +92,12 @@ void BSP_TIM_Init(ConfItem* dict)
 //初始化TIM信息
 void BSP_TIM_InitInfo(TIMInfo* info,ConfItem* dict)
 {
-	info->htim = Conf_GetPtr(dict,"htim",TIM_HandleTypeDef);
 	info->number = Conf_GetValue(dict,"number",uint8_t,0);
+
+	char timName[6] = {0}; // "tim13\0"
+	sprintf(timName, "tim%d", info->number);
+	info->htim = Conf_GetPeriphHandle(timName, TIM_HandleTypeDef);
+	UIML_FATAL_ASSERT(info->htim != NULL, "Missing TIM Device");
 	
 	char name[17] = {0};
 	sprintf(name, "/tim%d/update", info->number);
