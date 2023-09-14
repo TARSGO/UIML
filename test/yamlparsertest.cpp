@@ -1,12 +1,13 @@
 
-#include "../conf/yamlparser.h"
+#include "../system/yamlparser.h"
+#include <cmath>
 #include <iostream>
 #include <functional>
 
 constexpr const char* yaml_simple = 
 R"(
 sys:
-  rotate-pid:
+  rotate-pid: # 底盘跟随PID
     p: 1.5
     i: 0.0
     d: 0.0
@@ -15,16 +16,219 @@ sys:
 
 chassis:
   task-interval: 2
+
   info:
-    wheelbase: 100.0  #这里是注释
-    wheeltrack: 100.0
-    wheel-radius: 76.0
+    wheelbase: 100.0 # 轴距
+    wheeltrack: 100.0 # 轮距
+    wheel-radius: 76.0 # 轮子半径
     offset-x: 0.0
     offset-y: 0.0
-    #ThisIsAComment: 0
+
   move:
-    max-vx: 2000.0
+    max-vx: 2000.0 # mm/s
     max-vy: 2000.0
+    max-vw: 180.0 # deg/s
+    x-acc: 1000.0
+    y-acc: 1000.0
+
+  motor-fl: # 左前
+    type: "M3508"
+    id: 1
+    can-x: 1
+    speed-pid:
+      p: 10.0
+      i: 1.0
+      d: 0.0
+      max-i: 10000.0
+      max-out: 20000.0
+
+  motor-fr: # 右前
+    type: "M3508"
+    id: 2
+    can-x: 1
+    speed-pid:
+      p: 10.0
+      i: 1.0
+      d: 0.0
+      max-i: 10000.0
+      max-out: 20000.0
+
+  motor-bl: # 左后
+    type: "M3508"
+    id: 3
+    can-x: 1
+    speed-pid:
+      p: 10.0
+      i: 1.0
+      d: 0.0
+      max-i: 10000.0
+      max-out: 20000.0
+
+  motor-br: # 右后
+    type: "M3508"
+    id: 4
+    can-x: 1
+    speed-pid:
+      p: 10.0
+      i: 1.0
+      d: 0.0
+      max-i: 10000.0
+      max-out: 20000.0
+
+gimbal:
+  # Yaw Pitch机械零点时电机编码值
+  zero-yaw: 4010
+  zero-pitch: 5300
+  task-interval: 10
+
+  yaw-imu-pid:
+    p: -90.0
+    i: 0.0
+    d: 0.0
+    max-i: 50.0
+    max-out: 1000.0
+  motor-yaw:
+    type: "M6020"
+    id: 1
+    can-x: 1
+    speed-pid:
+      p: 15.0
+      i: 0.0
+      d: 0.0
+      max-i: 500.0
+      max-out: 20000.0
+
+  pitch-imu-pid:
+    p: 63.0
+    i: 0.0
+    d: 0.0
+    max-i: 10000.0
+    max-out: 20000.0
+  motor-pitch:
+    type: "M6020"
+    id: 4
+    can-x: 2
+    speed-pid:
+      p: 15.0
+      i: 0.0
+      d: 0.0
+      max-i: 500.0
+      max-out: 20000.0
+
+shooter:
+  task-interval: 10
+
+  trigger-angle: 45.0 # 拨一发弹丸的角度
+  trigger-motor:
+    type: "M2006"
+    name: "trigger-motor"
+    id: 6
+    can-x: 1
+    angle-pid:
+      inner:
+        p: 10.0
+        i: 0.0
+        d: 0.0
+        max-i: 10000.0
+        max-out: 20000.0
+      outer:
+        p: 10.0
+        i: 0.0
+        d: 0.0
+        max-i: 10000.0
+        max-out: 20000.0
+
+  fric-motor-left:
+    type: "M3508"
+    id: 2
+    can-x: 2
+    speed-pid:
+      p: 10.0
+      i: 0.0
+      d: 0.0
+      max-i: 10000.0
+      max-out: 20000.0
+
+  fric-motor-right:
+    type: "M3508"
+    id: 1
+    can-x: 2
+    speed-pid:
+      p: 10.0
+      i: 0.0
+      d: 0.0
+      max-i: 10000.0
+      max-out: 20000.0
+
+rc:
+  type: "DT7"
+  uart-x: 3
+
+judge:
+  uart-x: 6
+  task-interval: 150
+
+ins:
+  imu:
+    type: "BMI088"
+    spi-x: 1
+    tim-x: 10
+    channel-x: 1
+    tmp-pid:
+      p: 0.15
+      i: 0.01
+      d: 0.00
+      max-i: 0.15
+      max-out: 1
+
+# BSP配置
+can:
+  cans:
+    0:
+      number: 1
+    1:
+      number: 2
+  repeat-buffers:
+    0:
+      can-x: 1
+      id: 512
+      interval: 2
+    1:
+      can-x: 1
+      id: 511
+      interval: 2
+    2:
+      can-x: 2
+      id: 512
+      interval: 2
+    3:
+      can-x: 2
+      id: 511
+      interval: 2
+
+uart:
+  uarts:
+    0:
+      number: 3
+      max-recv-size: 18
+    1:
+      number: 6
+      max-recv-size: 300
+
+spi:
+  spis:
+    0:
+      number: 1
+      max-recv-size: 10
+      cs:
+        0:
+          gpio-x: "B"
+          pin: 0
+          name: "gyro"
+        1:
+          gpio-x: "A"
+          pin: 4
+          name: "acc"
 
 testcase:
   minus:
@@ -44,10 +248,10 @@ template <> bool CompareYamlValue(UimlYamlNode* node, const char* value) {
     return !strcmp(node->Str, value);
 }
 template <> bool CompareYamlValue(UimlYamlNode* node, float value) {
-    return (node->F32 - value <= 1e-6);
+    return (std::abs(node->F32 - value) <= 1e-6);
 }
 template <> bool CompareYamlValue(UimlYamlNode* node, double value) {
-    return (node->F32 - value <= 1e-6);
+    return (std::abs(node->F32 - value) <= 1e-6);
 }
 
 template <typename T> void AssertYamlValue(UimlYamlNode* root, const char* path, T value) {
@@ -70,16 +274,13 @@ void TestYamlParser() {
     auto pInfo = UimlYamlGetValue(pChassis->Children, "info");
     auto pOffsetX = UimlYamlGetValue(pInfo->Children, "wheel-radius");
 
-    std::cerr << "YAML test didn't crash." << std::endl;
-
-    AssertYamlValue(root, "/chassis/info/wheel-radius", 76.0);
+    AssertYamlValue(root, "/chassis/info/wheel-radius", 76.0f);
     AssertYamlValue(root, "/testcase/minus/int", -65537);
-    AssertYamlValue(root, "/testcase/minus/float", -123.456);
+    AssertYamlValue(root, "/testcase/minus/float", -123.456f);
     AssertYamlValue(root, "/testcase/positive/int", 65536);
-    AssertYamlValue(root, "/testcase/positive/float", 12.3456);
+    AssertYamlValue(root, "/testcase/positive/float", 12.3456f);
     AssertYamlValue(root, "/testcase/string/hello", "world");
-
-    std::cerr << "chassis.info.wheel-radius: " << pOffsetX->F32 << std::endl;
+    AssertYamlValue(root, "/spi/spis/0/cs/0/name", "gyro");
     
     std::cerr << "Comment test: " << UimlYamlGetValueByPath(root, "/chassis/#ThisIsAComment") << std::endl;
 
