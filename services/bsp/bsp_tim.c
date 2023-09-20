@@ -79,8 +79,8 @@ void BSP_TIM_Init(ConfItem* dict)
 	{
 		char confName[8] = {0};
 		sprintf(confName, "tims/%d", num);
-		BSP_TIM_InitInfo(&timService.timList[num], Conf_GetPtr(dict, confName, ConfItem));
-		BSP_TIM_StartHardware(&timService.timList[num], Conf_GetPtr(dict, confName, ConfItem));
+		BSP_TIM_InitInfo(&timService.timList[num], Conf_GetNode(dict, confName));
+		BSP_TIM_StartHardware(&timService.timList[num], Conf_GetNode(dict, confName));
 	}
 	//注册远程服务
 	Bus_RegisterRemoteFunc(NULL,BSP_TIM_SettingCallback,"/tim/setting");
@@ -107,18 +107,18 @@ void BSP_TIM_InitInfo(TIMInfo* info,ConfItem* dict)
 //开启TIM硬件
 void BSP_TIM_StartHardware(TIMInfo* info,ConfItem* dict)
 {
-	if(!strcmp(Conf_GetPtr(dict,"mode",char),"encode"))
+	if(!strcmp(Conf_GetValue(dict,"mode", const char*, NULL),"encode"))
 	{
 		HAL_TIM_Encoder_Start(info->htim,TIM_CHANNEL_ALL);
 	}
-	else if(!strcmp(Conf_GetPtr(dict,"mode",char),"pwm"))
+	else if(!strcmp(Conf_GetValue(dict,"mode", const char*, NULL),"pwm"))
 	{
 		HAL_TIM_PWM_Start(info->htim, TIM_CHANNEL_1);
 		HAL_TIM_PWM_Start(info->htim, TIM_CHANNEL_2);
 		HAL_TIM_PWM_Start(info->htim, TIM_CHANNEL_3);
 		HAL_TIM_PWM_Start(info->htim, TIM_CHANNEL_4);
 	}
-	else if(!strcmp(Conf_GetPtr(dict,"mode",char),"update-interrupted"))
+	else if(!strcmp(Conf_GetValue(dict,"mode", const char*, NULL),"update-interrupted"))
 	{
 		//清除定时器中断标志位，避免一开启就中断
 		__HAL_TIM_CLEAR_IT(info->htim, TIM_IT_UPDATE);

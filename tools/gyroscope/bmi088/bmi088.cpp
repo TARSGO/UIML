@@ -46,7 +46,7 @@ void Bmi088::Init(ConfItem* conf)
 	m_targetTemp = Conf_GetValue(conf, "target-temperature", float, 40);
 	m_channelX = Conf_GetValue(conf, "channel-x", uint8_t, 1);
 
-    m_heatingPid.Init(Conf_GetPtr(conf, "tmp-pid", ConfItem));
+    m_heatingPid.Init(Conf_GetNode(conf, "tmp-pid"));
 }
 
 void Bmi088::DeviceStartup()

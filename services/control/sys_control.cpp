@@ -52,7 +52,7 @@ void Sys_InitInfo(ConfItem *dict)
     sysCtrl.mode = Conf_GetValue(dict, "init-mode", uint8_t, SYS_FOLLOW_MODE); //默认跟随模式
     sysCtrl.rockerCtrl = Conf_GetValue(dict, "rocker-ctrl", bool, false);  //默认键鼠控制
 
-    sysCtrl.rotatePID.Init(Conf_GetPtr(dict, "rotate-pid", ConfItem)); // 初始化小陀螺PID
+    sysCtrl.rotatePID.Init(Conf_GetNode(dict, "rotate-pid")); // 初始化小陀螺PID
 }
 
 //初始化接收

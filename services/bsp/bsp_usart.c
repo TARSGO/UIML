@@ -99,7 +99,7 @@ void BSP_UART_Init(ConfItem* dict)
 	{
 		char confName[] = "uarts/_";
 		confName[6] = num + '0';
-		BSP_UART_InitInfo(&uartService.uartList[num], Conf_GetPtr(dict, confName, ConfItem));
+		BSP_UART_InitInfo(&uartService.uartList[num], Conf_GetNode(dict, confName));
 	}
 
 	//注册远程函数
@@ -116,9 +116,9 @@ void BSP_UART_InitInfo(UARTInfo* info, ConfItem* dict)
 	info->number = number;
 
 	char uartName[] = "uart_";
-	uartName[5] = number + '0';
+	uartName[4] = number + '0';
 	info->huart = Conf_GetPeriphHandle(uartName, UART_HandleTypeDef);
-	UIML_FATAL_ASSERT(info->huart != NULL, "Missing UART Device");
+	UIML_FATAL_ASSERT((info->huart != NULL), "Missing UART Device");
 
 	info->recvBuffer.maxBufSize = Conf_GetValue(dict, "max-recv-size", uint16_t, 1);
 	char name[] = "/uart_/recv";

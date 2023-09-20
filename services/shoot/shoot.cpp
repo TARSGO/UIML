@@ -90,9 +90,9 @@ void Shooter_Init(Shooter* shooter, ConfItem* dict)
 	//拨弹轮拨出一发弹丸转角
 	shooter->triggerAngle = Conf_GetValue(dict,"trigger-angle",float,1/7.0*360);
 	//发射机构电机初始化
-	shooter->fricMotors[0] = BasicMotor::Create(Conf_GetPtr(dict, "fric-motor-left", ConfItem));
-	shooter->fricMotors[1] = BasicMotor::Create(Conf_GetPtr(dict, "fric-motor-right", ConfItem));
-	shooter->triggerMotor = BasicMotor::Create(Conf_GetPtr(dict, "trigger-motor", ConfItem));
+	shooter->fricMotors[0] = BasicMotor::Create(Conf_GetNode(dict, "fric-motor-left"));
+	shooter->fricMotors[1] = BasicMotor::Create(Conf_GetNode(dict, "fric-motor-right"));
+	shooter->triggerMotor = BasicMotor::Create(Conf_GetNode(dict, "trigger-motor"));
 	//设置发射机构电机模式
 	for(uint8_t i = 0; i<2; i++)
 	{
@@ -109,7 +109,7 @@ void Shooter_Init(Shooter* shooter, ConfItem* dict)
 	shooter->changeModeName = (char*)pvPortMalloc(len + 6+ 1); //6为"/   /mode"的长度，1为'\0'的长度
 	sprintf(shooter->changeModeName, "/%s/mode", temp);
 	
-	temp = Conf_GetPtr(dict, "trigger-motor/name", char);
+	temp = Conf_GetValue(dict, "trigger-motor/name", const char*, NULL);
 	temp = temp ? temp : "trigger-motor";
 	len = strlen(temp);
 	shooter->triggerStallName = (char*)pvPortMalloc(len + 7+ 1); //7为"/   /stall"的长度，1为'\0'的长度

@@ -64,7 +64,7 @@ void BSP_EXTI_Init(ConfItem* dict)
 	{
 		char confName[9] = {0};
 		sprintf(confName,"extis/%d",num);
-		BSP_EXIT_InitInfo(extiService.extiList, Conf_GetPtr(dict, confName, ConfItem));
+		BSP_EXIT_InitInfo(extiService.extiList, Conf_GetNode(dict, confName));
 	}
 	extiService.initFinished=1;
 }
@@ -73,7 +73,9 @@ void BSP_EXTI_Init(ConfItem* dict)
 void BSP_EXIT_InitInfo(EXTIInfo* info, ConfItem* dict)
 {
 	uint8_t pin = Conf_GetValue(dict, "pin-x", uint8_t, 0);
-	info[pin].gpioX = Conf_GetPtr(dict, "gpio-x", GPIO_TypeDef);
+	char gpioName[] = "gpio_";
+	gpioName[5] = Conf_GetValue(dict, "gpio-x", uint8_t, 0) + 'A';
+	info[pin].gpioX = Conf_GetPeriphHandle(gpioName, GPIO_TypeDef*);
 	char name[12] = {0};
 	sprintf(name,"/exti/pin%d",pin);
 	//重新映射至GPIO_PIN=2^pin

@@ -1,8 +1,9 @@
 
 #include "can.h"
-#include "config.h"
+#include "gpio.h"
 #include "spi.h"
 #include "usart.h"
+#include "config.h"
 #include <string.h>
 
 __weak PeriphHandle* peripheralHandles = (PeriphHandle[]){
@@ -14,17 +15,9 @@ __weak PeriphHandle* peripheralHandles = (PeriphHandle[]){
     {"uart3", &huart3},
     {"uart6", &huart6},
 
+    {"gpioA", GPIOA},
+    {"gpioB", GPIOB},
+    {"gpioC", GPIOC},
+
     {NULL, NULL} // 结束元素，必须位于结尾
 };
-
-void* _Conf_GetPeriphHandle(const char* name)
-{
-    for (PeriphHandle* handle = peripheralHandles; handle->name != NULL; handle++)
-    {
-        if (strcmp(handle->name, name) == 0)
-        {
-            return handle->handle;
-        }
-    }
-    return NULL;
-}

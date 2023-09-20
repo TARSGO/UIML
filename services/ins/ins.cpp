@@ -91,8 +91,8 @@ void INS_Init(INS* ins, ConfItem* dict)
 {
 	ins->taskInterval = Conf_GetValue(dict,"task-interval",uint16_t,10);
 
-	// ins->filter = Filter_Init(Conf_GetPtr(dict, "filter", ConfItem));
-	//ins->tmpPID.Init(Conf_GetPtr(dict, "tmp-pid", ConfItem));
+	// ins->filter = Filter_Init(Conf_GetNode(dict, "filter"));
+	//ins->tmpPID.Init(Conf_GetNode(dict, "tmp-pid"));
 
 	auto temp = Conf_GetValue(dict, "name", const char *, nullptr);
 	temp = temp ? temp : "ins";

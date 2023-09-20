@@ -112,8 +112,8 @@ CascadePID::CascadePID(ConfItem* conf)
 // 用配置项初始化内外两环。默认内环配置键名"inner"，外环键名"outer"。
 void CascadePID::Init(ConfItem* conf)
 {
-    inner.Init(Conf_GetPtr(conf, "inner", ConfItem));
-    outer.Init(Conf_GetPtr(conf, "outer", ConfItem));
+    inner.Init(Conf_GetNode(conf, "inner"));
+    outer.Init(Conf_GetNode(conf, "outer"));
 }
 
 // 串级pid计算

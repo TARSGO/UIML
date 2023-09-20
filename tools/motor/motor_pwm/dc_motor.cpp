@@ -22,8 +22,8 @@ void DcMotor::Init(ConfItem* dict)
 	//设置电机默认模式为速度模式
 	SetMode(MOTOR_SPEED_MODE);
 	//初始化电机pid
-	m_speedPID.Init(Conf_GetPtr(dict, "speed-pid", ConfItem));
-	m_anglePID.Init(Conf_GetPtr(dict, "angle-pid", ConfItem));
+	m_speedPID.Init(Conf_GetNode(dict, "speed-pid"));
+	m_anglePID.Init(Conf_GetNode(dict, "angle-pid"));
 	m_anglePID.outer.maxOutput = m_speedPID.maxOutput/m_reductionRatio; // 将输出轴速度限幅放大到转子上
 	
 	//开启软件定时器

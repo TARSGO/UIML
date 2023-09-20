@@ -13,8 +13,8 @@ void DjiCanMotor::Init(ConfItem* dict)
 	m_mode = MOTOR_TORQUE_MODE;
 
 	// 初始化电机pid
-	m_speedPid.Init(Conf_GetPtr(dict, "speed-pid", ConfItem));
-	m_anglePid.Init(Conf_GetPtr(dict, "angle-pid", ConfItem));
+	m_speedPid.Init(Conf_GetNode(dict, "speed-pid"));
+	m_anglePid.Init(Conf_GetNode(dict, "angle-pid"));
 	m_anglePid.outer.maxOutput *= m_reductionRatio; // 将输出轴速度限幅放大到转子上
 
 	// 订阅can信息

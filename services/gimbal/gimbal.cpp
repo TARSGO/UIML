@@ -85,11 +85,11 @@ void Gimbal_Init(Gimbal* gimbal, ConfItem* dict)
 	gimbal->zeroAngle[1] = Conf_GetValue(dict, "zero-pitch", uint16_t, 0);
 
 	//云台电机初始化
-	gimbal->motors[1] = BasicMotor::Create(Conf_GetPtr(dict, "motor-pitch", ConfItem));
-	gimbal->motors[0] = BasicMotor::Create(Conf_GetPtr(dict, "motor-yaw", ConfItem));
+	gimbal->motors[1] = BasicMotor::Create(Conf_GetNode(dict, "motor-pitch"));
+	gimbal->motors[0] = BasicMotor::Create(Conf_GetNode(dict, "motor-yaw"));
 
-	gimbal->imu.pid[0].Init(Conf_GetPtr(dict, "yaw-imu-pid", ConfItem));
-	gimbal->imu.pid[1].Init(Conf_GetPtr(dict, "pitch-imu-pid", ConfItem));
+	gimbal->imu.pid[0].Init(Conf_GetNode(dict, "yaw-imu-pid"));
+	gimbal->imu.pid[1].Init(Conf_GetNode(dict, "pitch-imu-pid"));
 
 	//广播、远程函数name重映射
 	auto temp = Conf_GetValue(dict, "name", const char*, nullptr);
@@ -101,7 +101,7 @@ void Gimbal_Init(Gimbal* gimbal, ConfItem* dict)
 	gimbal->yawRelAngleName = (char*)pvPortMalloc(len + 20 + 1); //20为"/   /yaw/relative-angle"的长度，1为'\0'的长度
 	sprintf(gimbal->yawRelAngleName, "/%s/yaw/relative-angle", temp);
 
-	temp = Conf_GetPtr(dict, "ins-name", char);
+	temp = Conf_GetValue(dict, "ins-name", const char*, NULL);
 	temp = temp ? temp : "ins";
 	len = strlen(temp);
 	gimbal->imuEulerAngleName = (char*)pvPortMalloc(len + 13 + 1); //13为"/   /euler-angle"的长度，1为'\0'的长度

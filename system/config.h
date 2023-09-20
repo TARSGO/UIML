@@ -62,13 +62,12 @@ void* _Conf_GetPeriphHandle(const char* name);
 #define Conf_ItemExist(dict,name) (_Conf_GetValue((dict),(name))!=NULL)
 
 /*
-	@brief 获取配置值指针
+	@brief 获取配置节点指针
 	@param dict:目标字典
 	@param name:要查找的配置名，可通过'/'分隔以查找内层字典
-	@param type:配置值的类型
-	@retval 指向配置值的(type*)型指针，若配置名不存在则返回NULL
+	@retval 指向配置节点的ConfItem*型指针，若配置名不存在则返回NULL
 */
-#define Conf_GetPtr(dict,name,type) ((type*)_Conf_GetValue((dict),(name))->Ptr)
+#define Conf_GetNode(dict,name) (_Conf_GetValue((dict),(name)))
 
 /*
 	@brief 获取配置值

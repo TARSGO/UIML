@@ -23,7 +23,7 @@ typedef struct _Chassis
 		float wheelRadius;//轮半径
 		float offsetX;//重心在xy轴上的偏移
 		float offsetY;
-	}info;
+	}info; 
 	//4个电机
 	BasicMotor* motors[4];
 	//底盘移动信息
@@ -125,10 +125,10 @@ void Chassis_Init(Chassis* chassis, ConfItem* dict)
 	Slope_Init(&chassis->move.xSlope, CHASSIS_ACC2SLOPE(chassis->taskInterval, xAcc),0);
 	Slope_Init(&chassis->move.ySlope, CHASSIS_ACC2SLOPE(chassis->taskInterval, yAcc),0);
 	//底盘电机初始化
-	chassis->motors[0] = BasicMotor::Create(Conf_GetPtr(dict, "motor-fl", ConfItem));
-	chassis->motors[1] = BasicMotor::Create(Conf_GetPtr(dict, "motor-fr", ConfItem));
-	chassis->motors[2] = BasicMotor::Create(Conf_GetPtr(dict, "motor-bl", ConfItem));
-	chassis->motors[3] = BasicMotor::Create(Conf_GetPtr(dict, "motor-br", ConfItem));
+	chassis->motors[0] = BasicMotor::Create(Conf_GetNode(dict, "motor-fl"));
+	chassis->motors[1] = BasicMotor::Create(Conf_GetNode(dict, "motor-fr"));
+	chassis->motors[2] = BasicMotor::Create(Conf_GetNode(dict, "motor-bl"));
+	chassis->motors[3] = BasicMotor::Create(Conf_GetNode(dict, "motor-br"));
 	//设置底盘电机为速度模式
 	for(uint8_t i = 0; i<4; i++)
 	{

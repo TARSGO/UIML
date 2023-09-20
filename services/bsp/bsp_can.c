@@ -79,8 +79,8 @@ void BSP_CAN_Init(ConfItem* dict)
 	canService.canNum = 0;
 	for(uint8_t num = 0; ; num++)
 	{
-		char confName[] = "cans/_";
-		confName[5] = num + '0';
+		char confName[] = "/cans/_";
+		confName[6] = num + '0';
 		if(Conf_ItemExist(dict, confName))
 			canService.canNum++;
 		else
@@ -92,7 +92,7 @@ void BSP_CAN_Init(ConfItem* dict)
 	{
 		char confName[] = "cans/_";
 		confName[5] = num + '0';
-		BSP_CAN_InitInfo(&canService.canList[num], Conf_GetPtr(dict, confName, ConfItem));
+		BSP_CAN_InitInfo(&canService.canList[num], Conf_GetNode(dict, confName));
 	}
 	//初始化CAN硬件参数
 	for(uint8_t num = 0; num < canService.canNum; num++)
@@ -116,7 +116,7 @@ void BSP_CAN_Init(ConfItem* dict)
 	{
 		char confName[] = "repeat-buffers/_";
 		confName[15] = num + '0';
-		BSP_CAN_InitRepeatBuffer(&canService.repeatBuffers[num], Conf_GetPtr(dict, confName, ConfItem));
+		BSP_CAN_InitRepeatBuffer(&canService.repeatBuffers[num], Conf_GetNode(dict, confName));
 	}
 	//订阅广播
 	Bus_RegisterRemoteFunc(NULL, BSP_CAN_SetBufCallback, "/can/set-buf");
@@ -131,7 +131,7 @@ void BSP_CAN_InitInfo(CANInfo* info, ConfItem* dict)
 	info->number = Conf_GetValue(dict, "number", uint8_t, 0);
 
 	char canName[] = "can_";
-	canName[4] = info->number + '0';
+	canName[3] = info->number + '0';
 	info->hcan = Conf_GetPeriphHandle(canName, CAN_HandleTypeDef);
 	UIML_FATAL_ASSERT(info->hcan != NULL, "Missing CAN Device")
 

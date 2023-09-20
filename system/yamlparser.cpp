@@ -344,14 +344,15 @@ size_t UimlYamlParse(const char* input, UimlYamlNode** output)
     *output = CreateYamlNode();
     ParserContext ctx = {input, strlen(input), 0};
     auto state = UimlParseYamlDictIndent(ctx, &((*output)->Children), 0);
+    UIML_FATAL_ASSERT(ctx.Offset == ctx.Length, "YAML parser did not reach EOF!");
     return ctx.Offset;
 }
 
-UimlYamlNode* UimlYamlGetValue(UimlYamlNode* input, const char* childName)
+const UimlYamlNode* UimlYamlGetValue(const UimlYamlNode* input, const char* childName)
 {
     auto nameLength = strlen(childName);
     auto nameHash = Hasher_UIML32((uint8_t*)childName, nameLength);
-    UimlYamlNode* ret = input;
+    const UimlYamlNode* ret = input;
     
     while (ret != NULL)
     {
@@ -365,10 +366,10 @@ UimlYamlNode* UimlYamlGetValue(UimlYamlNode* input, const char* childName)
     return NULL;
 }
 
-UimlYamlNode* UimlYamlGetValueByPath(UimlYamlNode* input, const char* path)
+const UimlYamlNode* UimlYamlGetValueByPath(const UimlYamlNode* input, const char* path)
 {
     const char *begin = path, *end;
-    UimlYamlNode *ret = input;
+    const UimlYamlNode *ret = input;
 
     do {
         end = strchr(begin, '/');

@@ -98,7 +98,7 @@ void BSP_SPI_Init(ConfItem* dict)
 	{
 		char confName[8] = {0};
 		sprintf(confName, "spis/%d", num);
-		BSP_SPI_InitInfo(&spiService.spiList[num], Conf_GetPtr(dict, confName, ConfItem));
+		BSP_SPI_InitInfo(&spiService.spiList[num], Conf_GetNode(dict, confName));
 	}
 
 	//注册远程服务
@@ -122,7 +122,7 @@ void BSP_SPI_InitInfo(SPIInfo* info, ConfItem* dict)
 	osSemaphoreDef(lock);
 	info->lock = osSemaphoreCreate(osSemaphore(lock), 1);
 	//初始化片选引脚
-	BSP_SPI_InitCS(info, Conf_GetPtr(dict, "cs", ConfItem));
+	BSP_SPI_InitCS(info, Conf_GetNode(dict, "cs"));
 	//初始化缓冲区
 	info->recvBuffer.maxBufSize = Conf_GetValue(dict, "max-recv-size", uint16_t, 1);
 	info->recvBuffer.data = pvPortMalloc(info->recvBuffer.maxBufSize);
@@ -150,9 +150,11 @@ void BSP_SPI_InitCS(SPIInfo* info, ConfItem* dict)
     	//重新映射至GPIO_PIN=2^pin
 		info->csList[num].pin =1<<Conf_GetValue(dict, confName, uint8_t, 0);
 		sprintf(confName, "%d/name", num);
-		info->csList[num].name = Conf_GetPtr(dict, confName, char);
+		info->csList[num].name = Conf_GetValue(dict, confName, const char*, NULL);
 		sprintf(confName, "%d/gpio-x", num);
-		info->csList[num].gpioX = Conf_GetPtr(dict, confName, GPIO_TypeDef);
+		char gpioX = Conf_GetValue(dict, confName, const char*, "A");
+		sprintf(confName, "gpio%c", gpioX);
+		info->csList[num].gpioX = Conf_GetPeriphHandle(confName, GPIO_TypeDef);
 	}
 }
 
