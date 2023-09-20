@@ -28,7 +28,9 @@ function(uiml_link_to_stm32_target)
 
     # Check UIML "Strict Mode"
     if(ARG_STRICT_MODE)
-        target_compile_options(uiml_static PRIVATE -DUIML_STRICT_MODE)
+        message(STATUS " -- UIML: Strict Mode enabled")
+        target_compile_options(uiml_static PRIVATE "-DUIML_STRICT_MODE")
+        target_compile_options(${ARG_TARGET_NAME} PRIVATE "-DUIML_STRICT_MODE")
     endif()
 
     # Link it
