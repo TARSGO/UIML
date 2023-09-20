@@ -26,6 +26,7 @@ chassis:
 
   move:
     max-vx: 2000.0 # mm/s
+      #进一级插入注释测试
     max-vy: 2000.0
     max-vw: 180.0 # deg/s
     x-acc: 1000.0
@@ -229,7 +230,7 @@ spi:
           gpio-x: "A"
           pin: 4
           name: "acc"
-
+ #
 testcase:
   minus:
     int: -65537
@@ -239,29 +240,30 @@ testcase:
     float: 12.3456
   string:
     hello: "world"
+  #
 )";
 
-template <typename T> bool CompareYamlValue(UimlYamlNode* node, T value) {
+template <typename T> bool CompareYamlValue(const UimlYamlNode* node, T value) {
     return !memcmp(&(node->I32), &value, sizeof(T));
 }
-template <> bool CompareYamlValue(UimlYamlNode* node, const char* value) {
+template <> bool CompareYamlValue(const UimlYamlNode* node, const char* value) {
     return !strcmp(node->Str, value);
 }
-template <> bool CompareYamlValue(UimlYamlNode* node, float value) {
+template <> bool CompareYamlValue(const UimlYamlNode* node, float value) {
     return (std::abs(node->F32 - value) <= 1e-6);
 }
-template <> bool CompareYamlValue(UimlYamlNode* node, double value) {
+template <> bool CompareYamlValue(const UimlYamlNode* node, double value) {
     return (std::abs(node->F32 - value) <= 1e-6);
 }
 
-template <typename T> void AssertYamlValue(UimlYamlNode* root, const char* path, T value) {
+template <typename T> void AssertYamlValue(const UimlYamlNode* root, const char* path, T value) {
     auto node = UimlYamlGetValueByPath(root, path);
     if (node == NULL) {
         std::cerr << "FAIL: Requested value of \"" << path << "\" but the item does not exist!\n";
         return;
     }
     if (!CompareYamlValue(node, value)) {
-        std::cerr << "FAIL: Value of \"" << path << "\" expected: " << value << ", got: " << *reinterpret_cast<T*>(&(node->I32)) << '\n';
+        std::cerr << "FAIL: Value of \"" << path << "\" expected: " << value << ", got: " << *reinterpret_cast<const T*>(&(node->I32)) << '\n';
     }
 }
 
@@ -281,6 +283,10 @@ void TestYamlParser() {
     AssertYamlValue(root, "/testcase/positive/float", 12.3456f);
     AssertYamlValue(root, "/testcase/string/hello", "world");
     AssertYamlValue(root, "/spi/spis/0/cs/0/name", "gyro");
+
+    auto can = UimlYamlGetValue(root->Children, "can");
+    AssertYamlValue(can, "cans/0/number", 1);
+    AssertYamlValue(root, "spi/spis/0/cs/1/pin", 4);
     
     std::cerr << "Comment test: " << UimlYamlGetValueByPath(root, "/chassis/#ThisIsAComment") << std::endl;
 

@@ -28,14 +28,8 @@ void TestSoftBusFunctionality() {
     srand((uint32_t)time(NULL));
     int slowExpect = rand(), fastExpect = rand();
 
-    SoftBusItemX sendData[] {
-        {"value", {.I32 = slowExpect}}
-    };
-    SoftBusGenericData FastSendData[] {
-        {.I32 = fastExpect}
-    };
-    Bus_BroadcastSend("/test/slow_broadcast", sendData);
-    Bus_FastBroadcastSend(fastBroadcastHandle, FastSendData);
+    Bus_BroadcastSend("/test/slow_broadcast", {{"value", {.I32 = slowExpect}}});
+    Bus_FastBroadcastSend(fastBroadcastHandle, {{.I32 = fastExpect}});
 
     // Check result
     if (SlowBroadcast != slowExpect) {

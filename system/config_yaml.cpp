@@ -16,16 +16,16 @@ chassis:
   task-interval: 2
 
   info:
-    wheelbase: 100.0
-    wheeltrack: 100.0
-    wheel-radius: 76.0
+    wheelbase: 100.0 # 轴距
+    wheeltrack: 100.0 # 轮距
+    wheel-radius: 76.0 # 轮子半径
     offset-x: 0.0
     offset-y: 0.0
 
   move:
-    max-vx: 2000.0
+    max-vx: 2000.0 # mm/s
     max-vy: 2000.0
-    max-vw: 180.0
+    max-vw: 180.0 # deg/s
     x-acc: 1000.0
     y-acc: 1000.0
 
@@ -184,8 +184,8 @@ can:
   cans:
     0:
       number: 1
-    1:
-      number: 2
+#    1:
+#      number: 2
   repeat-buffers:
     0:
       can-x: 1
@@ -195,14 +195,14 @@ can:
       can-x: 1
       id: 511
       interval: 2
-    2:
-      can-x: 2
-      id: 512
-      interval: 2
-    3:
-      can-x: 2
-      id: 511
-      interval: 2
+#    2:
+#      can-x: 2
+#      id: 512
+#      interval: 2
+#    3:
+#      can-x: 2
+#      id: 511
+#      interval: 2
 
 uart:
   uarts:
