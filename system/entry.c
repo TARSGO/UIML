@@ -9,15 +9,6 @@ ConfItem* systemConfig = NULL;
 SERVICE_LIST
 #undef SERVICE
 
-//服务列表枚举
-typedef enum
-{
-	#define SERVICE(service,callback,priority,stackSize) service,
-	SERVICE_LIST
-	#undef SERVICE
-	serviceNum
-} Module;
-
 //服务任务句柄表
 osThreadId serviceTaskHandle[serviceNum];
 
@@ -30,7 +21,7 @@ void StartDefaultTask(void const * argument)
 	//创建所有服务任务，将配置表分别作为参数传入
 	#define SERVICE(service,callback,priority,stackSize) \
 		osThreadDef(service, callback, priority, 0, stackSize); \
-		serviceTaskHandle[service] = osThreadCreate(osThread(service), Conf_GetPtr(systemConfig,#service,void));
+		serviceTaskHandle[service] = osThreadCreate(osThread(service), (void*)UimlYamlGetValue(systemConfig->Children,#service));
 	SERVICE_LIST
 	#undef SERVICE
 	//销毁自己
