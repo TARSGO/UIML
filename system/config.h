@@ -5,6 +5,10 @@
 #include <stdbool.h>
 #include "yamlparser.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //弱符号，定义来自STM32 HAL库
 #if defined (__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050) /* ARM Compiler V6 */
   #ifndef __weak
@@ -83,5 +87,9 @@ void* _Conf_GetPeriphHandle(const char* name);
 	@retval 外设句柄
 */
 #define Conf_GetPeriphHandle(name,type) ((type*)_Conf_GetPeriphHandle(name))
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

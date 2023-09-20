@@ -32,12 +32,12 @@ class BasicMotor
 public:
 	BasicMotor() : m_mode(MOTOR_STOP_MODE) {};
 	virtual void Init(ConfItem* conf) = 0;
-	virtual bool SetMode(MotorCtrlMode mode);
-	virtual void EmergencyStop();
+	virtual bool SetMode(MotorCtrlMode mode) = 0;
+	virtual void EmergencyStop() = 0;
 
-	virtual bool SetTarget(float target);
-	virtual bool SetTotalAngle(float angle);
-	virtual float GetData(MotorDataType type);
+	virtual bool SetTarget(float target) = 0;
+	virtual bool SetTotalAngle(float angle) = 0;
+	virtual float GetData(MotorDataType type) = 0;
 
 	static BasicMotor* Create(ConfItem* conf);
 

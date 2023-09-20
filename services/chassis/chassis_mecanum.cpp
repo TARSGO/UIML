@@ -57,7 +57,7 @@ void Chassis_StopCallback(const char* name, SoftBusFrame* frame, void* bindData)
 static Chassis* GlobalChassis;
 
 //底盘任务回调函数
-void Chassis_TaskCallback(void const * argument)
+extern "C" void Chassis_TaskCallback(void const * argument)
 {
 	//进入临界区
 	portENTER_CRITICAL();

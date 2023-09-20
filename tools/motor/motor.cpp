@@ -3,9 +3,10 @@
 #include <string.h>
 
 #define MOTOR_CREATE_FOR(given, type) \
-    if (strcmp(Conf_GetValue(conf, "type", const char*, ""), (given)) == 0) \
+    if (strcmp(motorTypeString, (given)) == 0) \
     { \
         ret = (type*)MOTOR_MALLOC_PORT(sizeof(type)); \
+        new (ret) type(); /* 用定位new来调用构造函数 */ \
         ret->Init(conf); \
         break; \
     } 
@@ -13,6 +14,7 @@
 BasicMotor* BasicMotor::Create(ConfItem* conf)
 {
     BasicMotor* ret = NULL;
+    auto motorTypeString = Conf_GetValue(conf, "type", const char*, "");
 
     do
     {
@@ -24,7 +26,10 @@ BasicMotor* BasicMotor::Create(ConfItem* conf)
 
     // 一个都没创建出来
     if (ret == NULL)
+    {
         ret = (DummyMotor*)MOTOR_MALLOC_PORT(sizeof(DummyMotor));
+        new (ret) DummyMotor();
+    }
 
     return ret;
 }
