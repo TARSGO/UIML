@@ -298,7 +298,7 @@ static ParserState UimlParseYamlDictIndent(ParserContext& ctx, UimlYamlNode** ou
             case PS_EOL:
             {
                 // 直接遇到行尾时，此时试图解析字典
-                node->Children = CreateYamlNode();
+                // node->Children = CreateYamlNode();
                 state = UimlParseYamlDictIndent(ctx, &(node->Children), indentSpace + 2);
                 switch (state)
                 {
