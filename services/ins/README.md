@@ -34,6 +34,8 @@
 1. 在CubeMX中配置spi
   
    ![spi配置](README-IMG/bmi088的spi配置.png)
+
+   **注：请使用图示的备用引脚定义**
 	
 ## 模块配置项
 
