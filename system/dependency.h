@@ -31,6 +31,10 @@ void Depends_SignalFinished(Module module);
  */
 void _Depends_WaitFor(Module waitingModule, Module* modules, size_t count);
 
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
 /**
  * @brief 等待多个模块启动完成。
  * 
@@ -48,8 +52,4 @@ inline void Depends_WaitFor(Module waitingModule, std::initializer_list<Module> 
 {
     _Depends_WaitFor(waitingModule, (Module*)modules.begin(), modules.size());
 }
-#endif
-
-#ifdef __cplusplus
-} // extern "C"
 #endif
