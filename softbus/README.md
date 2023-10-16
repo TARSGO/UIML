@@ -104,18 +104,18 @@
 /* 普通发布方式 */
 uint8_t value1 = 0x01; //要发布的第一个值
 float value2 = 1.0f; //要发布的第二个值
-Bus_BroadcastSend("topic1", {
+Bus_PublishTopic("topic1", {
 	{"key1", {.U8 = value1}},
 	{"key2", {.U8 = value2}}
 }); //向总线广播一个映射表数据帧
 
 /* 快速发布方式 */
 //创建快速句柄(只在程序初始化时创建一次)
-SoftBusReceiverHandle handle = Bus_CreateReceiverHandle("topic2"); 
+SoftBusReceiverHandle handle = Bus_SubscribeTopicFast("topic2"); 
 //发布数据帧
 uint16_t value = 0x201; //要发布的第一个值
 uint8_t array[2] = {0x20, 0x01}; //要发布的第二个值
-Bus_FastBroadcastSend(handle, {{.U16 = value}, {array}}); //向总线快速广播一个列表数据帧
+Bus_PublishTopicFast(handle, {{.U16 = value}, {array}}); //向总线快速广播一个列表数据帧
 ```
 
 **接收广播**
@@ -126,7 +126,7 @@ void Callback(const char* name, SoftBusFrame* frame, void* bindData)
 {
 	if(strcmp(name, "topic1") == 0)
 	{
-		if(!Bus_CheckMapKeys(frame, {"key1", "key2"})) //确保数据帧中存在所需字段
+		if(!Bus_CheckMapKeysExist(frame, {"key1", "key2"})) //确保数据帧中存在所需字段
 			return;
 		uint8_t value1 = Bus_GetMapValue(frame, "key1").U8; //读取key1字段值
 		float value2 = Bus_GetMapValue(frame, "key2").F32; //读取key2字段值
@@ -143,8 +143,8 @@ void FastCallback(const char* name, SoftBusFrame* frame, void* bindData)
 }
 
 //订阅话题
-Bus_RegisterReceiver(NULL, Callback, "topic1");
-Bus_RegisterReceiver(NULL, Fastcallback, "topic2");
+Bus_SubscribeTopic(NULL, Callback, "topic1");
+Bus_SubscribeTopic(NULL, Fastcallback, "topic2");
 ```
 
 **编写和注册远程函数**
@@ -156,7 +156,7 @@ Bus_RegisterReceiver(NULL, Fastcallback, "topic2");
 bool Callback(const char* name, SoftBusFrame* frame, void* bindData)
 {
 
-	if(!Bus_CheckMapKeys(frame, {"arg1", "arg2"，"ret1", "ret2"})) //确保数据帧中存在所需所有参数
+	if(!Bus_CheckMapKeysExist(frame, {"arg1", "arg2"，"ret1", "ret2"})) //确保数据帧中存在所需所有参数
 		return false;
 	uint8_t value1 = Bus_GetMapValue(frame, "arg1").U8; //读取arg1参数值
 	float value2 = Bus_GetMapValue(frame, "arg2").F32; //读取arg2参数值
@@ -172,7 +172,7 @@ bool Callback(const char* name, SoftBusFrame* frame, void* bindData)
 }
 
 //向软总线注册该回调函数
-Bus_RegisterRemoteFunc(NULL, Callback, "fun1")
+Bus_RemoteFuncRegister(NULL, Callback, "fun1")
 
 ```
 
@@ -183,7 +183,7 @@ uint8_t value1 = 0x01; //要传入的第一个参数
 float value2 = 1.0f; //要传入的第二个参数
 float result1; //用于接收远程函数第一个返回值
 uint8_t result2;  //用于接收远程函数第二个返回值
-Bus_RemoteCall("fun1", {
+Bus_RemoteFuncCall("fun1", {
 	{"arg1", {.U8 = &value1}},
 	{"arg2", {.F32 = &value2}},
 	{"ret1", {&result1}},
@@ -197,6 +197,6 @@ Bus_RemoteCall("fun1", {
 ## 注意事项
 
 1. 回调函数是在广播发送者或者远程函数调用者所在线程中执行的，因此**回调函数的执行速度应尽可能快**，切不可发生阻塞
-	> 注：用`Bus_BroadcastSend`或`Bus_FastBroadcastSend`函数发布时，只有当订阅了该name的所有回调函数执行结束后，该发布函数才会退出
+	> 注：用`Bus_PublishTopic`或`Bus_PublishTopicFast`函数发布时，只有当订阅了该name的所有回调函数执行结束后，该发布函数才会退出
 2. **收到广播数据帧时，不得修改数据帧内容**，否则会导致后续回调函数收到的数据异常
 3. 软总线仅会传输数据的地址(data指针)，且**数据指针仅保证在回调函数范围内有效**，若需在回调函数外使用这些数据，请在回调中拷贝整个数据，而不只是保存数据指针

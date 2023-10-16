@@ -1,3 +1,4 @@
+#include "dependency.h"
 #include "softbus.h"
 #include "cmsis_os.h"
 #include "config.h"
@@ -33,7 +34,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	uint8_t pin = 31 - __CLZ((uint32_t)GPIO_Pin);//使用内核函数__clz就算GPIO_Pin前导0的个数，从而得到中断线号
 	EXTIInfo* extiInfo = &extiService.extiList[pin];
 	GPIO_PinState state = HAL_GPIO_ReadPin(extiInfo->gpioX, GPIO_Pin);
-	Bus_FastBroadcastSend(extiInfo->fastHandle,{{.U32 = state}});
+	Bus_PublishTopicFast(extiInfo->fastHandle,{{.U32 = state}});
 }
 //EXTI任务回调函数
 void BSP_EXTI_TaskCallback(void const * argument)
@@ -42,6 +43,8 @@ void BSP_EXTI_TaskCallback(void const * argument)
 	portENTER_CRITICAL();
 	BSP_EXTI_Init((ConfItem*)argument);
 	portEXIT_CRITICAL();
+
+	Depends_SignalFinished(svc_exti);
 	
 	vTaskDelete(NULL);
 }
@@ -80,7 +83,7 @@ void BSP_EXIT_InitInfo(EXTIInfo* info, ConfItem* dict)
 	sprintf(name,"/exti/pin%d",pin);
 	//重新映射至GPIO_PIN=2^pin
 	info[pin].pin = 1 << pin;
-	info[pin].fastHandle = Bus_CreateReceiverHandle(name);
+	info[pin].fastHandle = Bus_SubscribeTopicFast(name);
 }
 
 

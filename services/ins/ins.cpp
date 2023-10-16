@@ -35,11 +35,15 @@ typedef struct
 void INS_Init(INS* ins, ConfItem* dict);
 void INS_TmpPIDTimerCallback(void const *argument);
 
-void INS_TaskCallback(void const * argument)
+static INS* GlobalINS;
+
+extern "C" void INS_TaskCallback(void const * argument)
 { 
 
 	/* USER CODE BEGIN IMU */ 
 	INS ins = {0};
+	GlobalINS = &ins;
+
 	osDelay(50);
 	INS_Init(&ins, (ConfItem*)argument);
 	AHRS_init(ins.imu.quat,ins.imu.accel,ins.imu.mag);
@@ -81,7 +85,7 @@ void INS_TaskCallback(void const * argument)
 		ins.pitch = ins.pitch/PI*180;
 		ins.roll = ins.roll/PI*180;
 		//发布数据
-		Bus_BroadcastSend(ins.eulerAngleName, {{"yaw", {.F32 = ins.yaw}}, {"pitch", {.F32 = ins.pitch}}, {"roll", {.F32 = ins.roll}}});
+		Bus_PublishTopic(ins.eulerAngleName, {{"yaw", {.F32 = ins.yaw}}, {"pitch", {.F32 = ins.pitch}}, {"roll", {.F32 = ins.roll}}});
 		osDelay(ins.taskInterval);
 	}
   /* USER CODE END IMU */

@@ -7,7 +7,7 @@
 class BasicGyroscope
 {
 public:
-    BasicGyroscope();
+    BasicGyroscope() {};
 
     virtual void Init(ConfItem* conf) = 0;
     virtual bool Acquire() = 0;
@@ -34,8 +34,14 @@ public:
     virtual void TemperatureControlTick() override;
 
 private:
+    enum ChipSelect
+    {
+        Accelerometer = 0,
+        Gyroscope = 1
+    };
+
     // 发送SPI命令。接收会自动存入内置缓冲区。
-    void DeviceIssueCommandSpi(uint8_t* TxBuffer, size_t TxLength);
+    void DeviceIssueCommandSpi(uint8_t* TxBuffer, size_t TxLength, ChipSelect Cs);
 
     // 启动BMI088。只应该由Init函数调用一次。
     void DeviceStartup();
@@ -52,7 +58,7 @@ private:
     float m_targetTemp; // 恒温加热目标温度值（摄氏度）
     PID m_heatingPid; // 恒温加热PID
 
-    uint8_t m_spiRxBuffer[8]; // SPI通信接收缓冲区（需要一次读的最大数据就是8字节）
+    uint8_t m_spiTxBuffer[8], m_spiRxBuffer[8]; // SPI通信接收缓冲区（需要一次读的最大数据就是8字节）
     float m_ax, m_ay, m_az; // 加速度计
     float m_vx, m_vy, m_vz; // 陀螺仪（角速度计）
     float m_temperature; // 温度

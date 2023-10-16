@@ -8,30 +8,30 @@
     C++ 语法实现这几个 API。
 */
 
-bool Bus_MultiRegisterReceiver(void* bindData,
+bool Bus_SubscribeTopics(void* bindData,
                                void(*callback)(const char*, _SoftBusFrame*, void*),
                                std::initializer_list<const char*> endpoints)
 {
-    return _Bus_MultiRegisterReceiver(bindData, callback, endpoints.size(), &(*endpoints.begin()));
+    return _Bus_SubscribeTopics(bindData, callback, endpoints.size(), &(*endpoints.begin()));
 }
 
 
-void Bus_FastBroadcastSend(void* endpointHandle, std::initializer_list<SoftBusGenericData> data)
+void Bus_PublishTopicFast(void* endpointHandle, std::initializer_list<SoftBusGenericData> data)
 {
-    _Bus_BroadcastSendList(endpointHandle, data.size(), &(*data.begin()));
+    _Bus_PublishTopicList(endpointHandle, data.size(), &(*data.begin()));
 }
 
-void Bus_BroadcastSend(const char* endpoint, std::initializer_list<SoftBusItemX> parameters)
+void Bus_PublishTopic(const char* endpoint, std::initializer_list<SoftBusItemX> parameters)
 {
-    _Bus_BroadcastSendMap(endpoint, parameters.size(), &(*parameters.begin()));
+    _Bus_PublishTopicMap(endpoint, parameters.size(), &(*parameters.begin()));
 }
 
-bool Bus_RemoteCall(const char* endpoint, std::initializer_list<SoftBusItemX> parameters)
+bool Bus_RemoteFuncCall(const char* endpoint, std::initializer_list<SoftBusItemX> parameters)
 {
-    return _Bus_RemoteCallMap(endpoint, parameters.size(), &(*parameters.begin()));
+    return _Bus_RemoteFuncCallMap(endpoint, parameters.size(), &(*parameters.begin()));
 }
 
-bool Bus_CheckMapKeys(_SoftBusFrame* frame, std::initializer_list<const char *> keys)
+bool Bus_CheckMapKeysExist(_SoftBusFrame* frame, std::initializer_list<const char *> keys)
 {
-    return _Bus_CheckMapKeys(frame, keys.size(), &(*keys.begin()));
+    return _Bus_CheckMapKeysExist(frame, keys.size(), &(*keys.begin()));
 }

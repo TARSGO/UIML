@@ -1,6 +1,7 @@
 
 #include <cmsis_os.h>
 #include "sys_conf.h"
+#include "dependency.h"
 
 ConfItem* systemConfig = NULL;
 
@@ -18,12 +19,16 @@ void StartDefaultTask(void const * argument)
 	// 执行YAML解析
 	UimlYamlParse(configYaml, &systemConfig);
 
+	// 初始化依赖启动模块
+	Depends_Init();
+
 	//创建所有服务任务，将配置表分别作为参数传入
 	#define SERVICE(service,callback,priority,stackSize) \
 		osThreadDef(service, callback, priority, 0, stackSize); \
-		serviceTaskHandle[service] = osThreadCreate(osThread(service), (void*)UimlYamlGetValue(systemConfig->Children,#service));
+		serviceTaskHandle[svc_##service] = osThreadCreate(osThread(service), (void*)UimlYamlGetValue(systemConfig->Children,#service));
 	SERVICE_LIST
 	#undef SERVICE
+	
 	//销毁自己
 	vTaskDelete(NULL);
 }

@@ -56,7 +56,7 @@ void DcMotor::UpdateAngle()
 	int32_t dAngle=0;
 	uint32_t autoReload=0;
 	
-	Bus_RemoteCall("/tim/encode",{{"tim-x", {.U8 = m_encodeTim.timX}},
+	Bus_RemoteFuncCall("/tim/encode",{{"tim-x", {.U8 = m_encodeTim.timX}},
 								  {"count", {.U16 = m_angle}},
 								  {"auto-reload", {&autoReload}}});
 	
@@ -95,20 +95,20 @@ void DcMotor::ControllerUpdate(float reference)
   
 	if(output>0)
 	{
-		Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_posRotateTim.timX}},
+		Bus_RemoteFuncCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_posRotateTim.timX}},
 											 {"channel-x", {.U8 = m_posRotateTim.channelX}},
 											 {"duty", {.F32 = output}}});
-		Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_posRotateTim.timX}},
+		Bus_RemoteFuncCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_posRotateTim.timX}},
 											 {"channel-x", {.U8 = m_negRotateTim.channelX}},
 											 {"duty", {.F32 = 0.0f}}});
 	}
 	else
 	{
 		output = ABS(output);
-		Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_posRotateTim.timX}},
+		Bus_RemoteFuncCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_posRotateTim.timX}},
 										     {"channel-x", {.U8 = m_posRotateTim.channelX}},
 											 {"duty", {.F32 = 0.0f}}});
-		Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_posRotateTim.timX}},
+		Bus_RemoteFuncCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_posRotateTim.timX}},
 											 {"channel-x", {.U8 = m_negRotateTim.channelX}},
 											 {"duty", {.F32 = output}}});
 	}
@@ -156,10 +156,10 @@ void DcMotor::EmergencyStop()
 {
 	m_mode = MOTOR_STOP_MODE;
 
-	Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_posRotateTim.timX}},
+	Bus_RemoteFuncCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_posRotateTim.timX}},
 										 {"channel-x", {.U8 = m_posRotateTim.channelX}},
 										 {"duty", {.F32 = 0.0f}}});
-	Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_posRotateTim.timX}},
+	Bus_RemoteFuncCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_posRotateTim.timX}},
 										 {"channel-x", {.U8 = m_negRotateTim.channelX}},
 										 {"duty", {.F32 = 0.0f}}});
 }

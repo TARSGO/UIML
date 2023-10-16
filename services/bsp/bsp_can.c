@@ -1,5 +1,6 @@
 #include "config.h"
 #include "softbus.h"
+#include "dependency.h"
 #include "cmsis_os.h"
 #include <string.h>
 #include "strict.h"
@@ -56,7 +57,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		if(hcan == canInfo->hcan) //找到中断回调函数中对应can列表的can
 		{
 			uint16_t frameID = header.StdId;
-			Bus_FastBroadcastSend(canInfo->fastHandle, {{.U16 = frameID}, {rx_data}}); //快速广播发布数据
+			Bus_PublishTopicFast(canInfo->fastHandle, {{.U16 = frameID}, {rx_data}}); //快速广播发布数据
 			break;
 		}
 	}
@@ -69,6 +70,9 @@ void BSP_CAN_TaskCallback(void const * argument)
 	portENTER_CRITICAL();
 	BSP_CAN_Init((ConfItem*)argument);
 	portEXIT_CRITICAL();
+
+	osDelay(10000);
+	Depends_SignalFinished(svc_can);
 	
 	vTaskDelete(NULL);
 }
@@ -119,8 +123,8 @@ void BSP_CAN_Init(ConfItem* dict)
 		BSP_CAN_InitRepeatBuffer(&canService.repeatBuffers[num], Conf_GetNode(dict, confName));
 	}
 	//订阅广播
-	Bus_RegisterRemoteFunc(NULL, BSP_CAN_SetBufCallback, "/can/set-buf");
-	Bus_RegisterRemoteFunc(NULL, BSP_CAN_SetBufCallback, "/can/send-once");
+	Bus_RemoteFuncRegister(NULL, BSP_CAN_SetBufCallback, "/can/set-buf");
+	Bus_RemoteFuncRegister(NULL, BSP_CAN_SetBufCallback, "/can/send-once");
 
 	canService.initFinished = 1;
 }
@@ -137,7 +141,7 @@ void BSP_CAN_InitInfo(CANInfo* info, ConfItem* dict)
 
 	char name[] = "/can_/recv";
 	name[4] = info->number + '0';
-	info->fastHandle = Bus_CreateReceiverHandle(name);
+	info->fastHandle = Bus_SubscribeTopicFast(name);
 }
 
 //初始化硬件参数
@@ -214,7 +218,7 @@ uint8_t BSP_CAN_SendFrame(CAN_HandleTypeDef* hcan,uint16_t stdId,uint8_t* data)
 //设置循环缓存区某部分字节数据远程函数回调
 bool BSP_CAN_SetBufCallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
-	if(!Bus_CheckMapKeys(frame, {"can-x", "id", "pos", "len", "data"}))
+	if(!Bus_CheckMapKeysExist(frame, {"can-x", "id", "pos", "len", "data"}))
 		return false;
 	
 	uint8_t canX = Bus_GetMapValue(frame, "can-x").U8;
@@ -237,7 +241,7 @@ bool BSP_CAN_SetBufCallback(const char* name, SoftBusFrame* frame, void* bindDat
 //发送一帧can数据远程函数回调
 bool BSP_CAN_SendOnceCallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
-	if(!Bus_CheckMapKeys(frame, {"can-x", "id", "data"}))
+	if(!Bus_CheckMapKeysExist(frame, {"can-x", "id", "data"}))
 		return false;
 
 	uint8_t canX = Bus_GetMapValue(frame, "can-x").U8;

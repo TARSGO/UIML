@@ -58,7 +58,7 @@ void Shooter_TaskCallback(void const * argument)
 			case SHOOTER_MODE_ONCE:   //单发
 				if(shooter.fricEnable == false)   //若摩擦轮未开启则先开启
 				{
-					Bus_RemoteCall("/shooter/setting", {{"fric-enable",{.Bool = true}}});
+					Bus_RemoteFuncCall("/shooter/setting", {{"fric-enable",{.Bool = true}}});
 					osDelay(200);     //等待摩擦轮转速稳定
 				}
 				shooter.targetTrigAngle += shooter.triggerAngle; 
@@ -68,7 +68,7 @@ void Shooter_TaskCallback(void const * argument)
 			case SHOOTER_MODE_CONTINUE:  //以一定的时间间隔连续发射 
 				if(shooter.fricEnable == false)   //若摩擦轮未开启则先开启
 				{
-					Bus_RemoteCall("/shooter/setting",{{"fric-enable",{.Bool = true}}});
+					Bus_RemoteFuncCall("/shooter/setting",{{"fric-enable",{.Bool = true}}});
 					osDelay(200);   //等待摩擦轮转速稳定
 				}
 				shooter.targetTrigAngle += shooter.triggerAngle;  //增加拨弹电机目标角度
@@ -116,27 +116,27 @@ void Shooter_Init(Shooter* shooter, ConfItem* dict)
 	sprintf(shooter->triggerStallName, "/%s/stall", temp);
 
 	//注册回调函数
-	Bus_RegisterRemoteFunc(shooter,Shooter_SettingCallback, shooter->settingName);
-	Bus_RegisterRemoteFunc(shooter,Shoot_ChangeModeCallback, shooter->changeModeName);
-	Bus_RegisterReceiver(shooter,Shoot_StopCallback,"/system/stop");
-	Bus_RegisterReceiver(shooter,Shooter_BlockCallback, shooter->triggerStallName);
+	Bus_RemoteFuncRegister(shooter,Shooter_SettingCallback, shooter->settingName);
+	Bus_RemoteFuncRegister(shooter,Shoot_ChangeModeCallback, shooter->changeModeName);
+	Bus_SubscribeTopic(shooter,Shoot_StopCallback,"/system/stop");
+	Bus_SubscribeTopic(shooter,Shooter_BlockCallback, shooter->triggerStallName);
 }
 
 //射击模式
 bool Shooter_SettingCallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
 	Shooter *shooter = (Shooter*)bindData ;
-	if(Bus_IsMapKeyExist(frame,"fric-speed"))
+	if(Bus_CheckMapKeyExist(frame,"fric-speed"))
 	{
 		shooter->fricSpeed = Bus_GetMapValue(frame,"fric-speed").F32;
 	}
 
-	if(Bus_IsMapKeyExist(frame,"trigger-angle"))
+	if(Bus_CheckMapKeyExist(frame,"trigger-angle"))
 	{
 		shooter->triggerAngle = Bus_GetMapValue(frame,"trigger-angle").F32;
 	}
 
-	if(Bus_IsMapKeyExist(frame,"fric-enable"))
+	if(Bus_CheckMapKeyExist(frame,"fric-enable"))
 	{
 		shooter->fricEnable = Bus_GetMapValue(frame,"fric-enable").Bool;
 		if(shooter->fricEnable == false)
@@ -155,7 +155,7 @@ bool Shooter_SettingCallback(const char* name, SoftBusFrame* frame, void* bindDa
 bool Shoot_ChangeModeCallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
 	Shooter *shooter = (Shooter*)bindData;
-	if(Bus_IsMapKeyExist(frame,"mode"))
+	if(Bus_CheckMapKeyExist(frame,"mode"))
 	{
 		const char* mode = Bus_GetMapValue(frame,"mode").Str;
 		if(!strcmp(mode, "once") && shooter->mode == SHOOTER_MODE_IDLE)  //空闲时才允许修改模式
@@ -165,7 +165,7 @@ bool Shoot_ChangeModeCallback(const char* name, SoftBusFrame* frame, void* bindD
 		}
 		else if(!strcmp(mode,"continue") && shooter->mode == SHOOTER_MODE_IDLE)
 		{
-			if(!Bus_IsMapKeyExist(frame,"interval-time"))
+			if(!Bus_CheckMapKeyExist(frame,"interval-time"))
 				return false;
 			shooter->intervalTime = Bus_GetMapValue(frame,"interval-time").U16;
 			shooter->mode = SHOOTER_MODE_CONTINUE;

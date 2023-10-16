@@ -18,18 +18,18 @@ void TestSoftBusFunctionality() {
     std::cerr << __FUNCTION__ << std::endl;
 
     // Create fast broadcast handle
-    auto fastBroadcastHandle = Bus_CreateReceiverHandle("/test/fast_broadcast");
+    auto fastBroadcastHandle = Bus_SubscribeTopicFast("/test/fast_broadcast");
 
     // Connect sources to sinks
-    Bus_RegisterReceiver(nullptr, FastBroadcastEndpoint, "/test/fast_broadcast");
-    Bus_RegisterReceiver(nullptr, SlowBroadcastEndpoint, "/test/slow_broadcast");
+    Bus_SubscribeTopic(nullptr, FastBroadcastEndpoint, "/test/fast_broadcast");
+    Bus_SubscribeTopic(nullptr, SlowBroadcastEndpoint, "/test/slow_broadcast");
 
     // Make broadcast
     srand((uint32_t)time(NULL));
     int slowExpect = rand(), fastExpect = rand();
 
-    Bus_BroadcastSend("/test/slow_broadcast", {{"value", {.I32 = slowExpect}}});
-    Bus_FastBroadcastSend(fastBroadcastHandle, {{.I32 = fastExpect}});
+    Bus_PublishTopic("/test/slow_broadcast", {{"value", {.I32 = slowExpect}}});
+    Bus_PublishTopicFast(fastBroadcastHandle, {{.I32 = fastExpect}});
 
     // Check result
     if (SlowBroadcast != slowExpect) {

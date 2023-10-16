@@ -24,7 +24,7 @@ void M3508::Init(ConfItem* dict)
 	motorName = motorName ? motorName : "m3508";
 	char* stallName = (char*)MOTOR_MALLOC_PORT(strlen(stallFormat) - 2 + strlen(motorName));
 	sprintf(stallName, stallFormat, motorName); // 格式化字符串
-	m_stallTopic = Bus_CreateReceiverHandle(stallName); // 创建话题句柄
+	m_stallTopic = Bus_SubscribeTopicFast(stallName); // 创建话题句柄
 	MOTOR_FREE_PORT(stallName); // 释放内存
 
 	// 软件定时器
@@ -37,7 +37,7 @@ void M3508::CanTransmit(uint16_t output)
 	// 交换成大端
 	output = SwapByteorder16Bit(output);
 
-	Bus_RemoteCall("/can/set-buf", {
+	Bus_RemoteFuncCall("/can/set-buf", {
 					{"can-x", {.U8 = m_canInfo.canX}},
 		 			{"id", {.U16 = m_canInfo.txID}},
 		 			{"pos", {.U8 = m_canInfo.bufIndex}},

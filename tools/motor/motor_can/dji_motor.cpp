@@ -20,7 +20,7 @@ void DjiCanMotor::Init(ConfItem* dict)
 	// 订阅can信息
 	char name[] = "/can_/recv";
 	name[4] = m_canInfo.canX + '0';
-	Bus_RegisterReceiver(this, DjiCanMotor::CanRxCallback, name);
+	Bus_SubscribeTopic(this, DjiCanMotor::CanRxCallback, name);
 
 	m_stallTime = 0;
 }
@@ -187,7 +187,7 @@ void DjiCanMotor::StallDetection()
 	m_stallTime = (m_motorSpeed == 0 && abs(m_motorTorque) > 7000) ? m_stallTime + 2 : 0;
 	if (m_stallTime > 500)
 	{
-		Bus_FastBroadcastSend(m_stallTopic, {{nullptr}});
+		Bus_PublishTopicFast(m_stallTopic, {{nullptr}});
 		m_stallTime = 0;
 	}
 }

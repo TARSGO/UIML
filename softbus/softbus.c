@@ -38,8 +38,8 @@ typedef struct{
 int8_t Bus_Init(void);//初始化软总线,返回0:成功 -1:失败
 uint32_t SoftBus_Str2Hash_8(const char* str);//8位处理的hash函数，在字符串长度小于20个字符时使用
 uint32_t SoftBus_Str2Hash_32(const char* str);//32位处理的hash函数，在字符串长度小于20个字符时使用
-void _Bus_BroadcastSend(const char* name, SoftBusFrame* frame);//发布消息
-bool _Bus_RemoteCall(const char* name, SoftBusFrame* frame);//请求服务
+void _Bus_PublishTopic(const char* name, SoftBusFrame* frame);//发布消息
+bool _Bus_RemoteFuncCall(const char* name, SoftBusFrame* frame);//请求服务
 void Bus_EmptyBroadcastReceiver(const char* name, SoftBusFrame* frame, void* bindData);//空回调函数
 bool Bus_EmptyRemoteFunction(const char* name, SoftBusFrame* frame, void* bindData);//空回调函数
 
@@ -50,7 +50,7 @@ int8_t Bus_Init()
     return Vector_Init(hashList,HashNode);
 }
 
-int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, const char* name)
+int8_t Bus_SubscribeTopic(void* bindData, SoftBusBroadcastReceiver callback, const char* name)
 {
 	if(!name || !callback)
 		return -2;
@@ -96,13 +96,13 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	return Vector_PushBack(hashList, ((HashNode){hash, receiverV, remoteV}));
 }
 
-int8_t _Bus_MultiRegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, uint16_t namesNum, const char* const * names)
+int8_t _Bus_SubscribeTopics(void* bindData, SoftBusBroadcastReceiver callback, uint16_t namesNum, const char* const * names)
 {
 	if(!names || !namesNum || !callback)
 		return -2;
 	for (uint16_t i = 0; i < namesNum; i++)
 	{
-		uint8_t retval = Bus_RegisterReceiver(bindData, callback, names[i]); //逐个订阅话题
+		uint8_t retval = Bus_SubscribeTopic(bindData, callback, names[i]); //逐个订阅话题
 		if(retval)
 			return retval;
 	}
@@ -128,7 +128,7 @@ uint32_t SoftBus_Str2Hash_32(const char* str)
     return h; 
 }
 
-void _Bus_BroadcastSend(const char* name, SoftBusFrame* frame)
+void _Bus_PublishTopic(const char* name, SoftBusFrame* frame)
 {
 	if(!hashList.data ||!name || !frame)
 		return;
@@ -153,15 +153,15 @@ void _Bus_BroadcastSend(const char* name, SoftBusFrame* frame)
 	}
 }
 
-void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, const SoftBusItemX* items)
+void _Bus_PublishTopicMap(const char* name, uint16_t itemNum, const SoftBusItemX* items)
 {
 	if(!hashList.data ||!name || !itemNum || !items)
 		return;
 	SoftBusFrame frame = {items, itemNum};
-	_Bus_BroadcastSend(name, &frame);
+	_Bus_PublishTopic(name, &frame);
 }
 
-void _Bus_BroadcastSendList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, const SoftBusGenericData list[])
+void _Bus_PublishTopicList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, const SoftBusGenericData list[])
 {
 	if(!hashList.data || !listNum || !list)
 		return;
@@ -173,7 +173,7 @@ void _Bus_BroadcastSendList(SoftBusReceiverHandle receiverHandle, uint16_t listN
 	}
 }
 
-SoftBusReceiverHandle Bus_CreateReceiverHandle(const char* name)
+SoftBusReceiverHandle Bus_SubscribeTopicFast(const char* name)
 {
 	if(!name)
 		return NULL;
@@ -191,11 +191,11 @@ SoftBusReceiverHandle Bus_CreateReceiverHandle(const char* name)
 			}
 		}
 	}
-	Bus_RegisterReceiver(NULL, Bus_EmptyBroadcastReceiver, name);//未匹配到receiver,注册一个空回调函数
-	return Bus_CreateReceiverHandle(name);//递归调用
+	Bus_SubscribeTopic(NULL, Bus_EmptyBroadcastReceiver, name);//未匹配到receiver,注册一个空回调函数
+	return Bus_SubscribeTopicFast(name);//递归调用
 }
 
-int8_t Bus_RegisterRemoteFunc(void* bindData, SoftBusRemoteFunction callback, const char* name)
+int8_t Bus_RemoteFuncRegister(void* bindData, SoftBusRemoteFunction callback, const char* name)
 {
 	if(!name || !callback)
 		return -2;
@@ -239,7 +239,7 @@ int8_t Bus_RegisterRemoteFunc(void* bindData, SoftBusRemoteFunction callback, co
 	return Vector_PushBack(hashList, ((HashNode){hash, receiverV, remoteV}));
 }
 
-bool _Bus_RemoteCall(const char* name, SoftBusFrame* frame)
+bool _Bus_RemoteFuncCall(const char* name, SoftBusFrame* frame)
 {
 	if(!hashList.data ||!name || !frame)
 		return false;
@@ -262,15 +262,15 @@ bool _Bus_RemoteCall(const char* name, SoftBusFrame* frame)
 	return false;
 }
 
-bool _Bus_RemoteCallMap(const char* name, uint16_t itemNum, const SoftBusItemX* items)
+bool _Bus_RemoteFuncCallMap(const char* name, uint16_t itemNum, const SoftBusItemX* items)
 {
 	if(!hashList.data ||!name || !itemNum || !items)
 		return false;
 	SoftBusFrame frame = {items, itemNum};
-	return _Bus_RemoteCall(name, &frame);
+	return _Bus_RemoteFuncCall(name, &frame);
 }
 
-uint8_t _Bus_CheckMapKeys(SoftBusFrame* frame, uint16_t keysNum, const char* const* keys)
+uint8_t _Bus_CheckMapKeysExist(SoftBusFrame* frame, uint16_t keysNum, const char* const* keys)
 {
 	if(!frame || !keys || !keysNum)
 		return 0;

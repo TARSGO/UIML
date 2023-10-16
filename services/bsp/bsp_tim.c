@@ -1,10 +1,12 @@
 #include "config.h"
 #include "softbus.h"
-#include "cmsis_os.h"
-#include <stdio.h>
-#include <string.h>
+#include <cmsis_os.h>
 #include "tim.h"
 #include "strict.h"
+#include "dependency.h"
+
+#include <stdio.h>
+#include <string.h>
 
 #ifndef LIMIT
 #define LIMIT(x,min,max) (x)=(((x)<=(min))?(min):(((x)>=(max))?(max):(x)))
@@ -43,7 +45,7 @@ void BSP_TIM_UpdateCallback(TIM_HandleTypeDef *htim)
 		if(htim == timService.timList[num].htim) //找到对应的TIM
 		{
 			TIMInfo* timInfo = &timService.timList[num];
-			Bus_FastBroadcastSend(timInfo->fastHandle,{{""}});
+			Bus_PublishTopicFast(timInfo->fastHandle,{{""}});
 		}
 	}
 }
@@ -55,6 +57,8 @@ void BSP_TIM_TaskCallback(void const * argument)
 	portENTER_CRITICAL();
 	BSP_TIM_Init((ConfItem*)argument);
 	portEXIT_CRITICAL();
+
+	Depends_SignalFinished(svc_tim);
 
 	vTaskDelete(NULL);
 }
@@ -83,9 +87,9 @@ void BSP_TIM_Init(ConfItem* dict)
 		BSP_TIM_StartHardware(&timService.timList[num], Conf_GetNode(dict, confName));
 	}
 	//注册远程服务
-	Bus_RegisterRemoteFunc(NULL,BSP_TIM_SettingCallback,"/tim/setting");
-	Bus_RegisterRemoteFunc(NULL,BSP_TIM_SetDutyCallback,"/tim/pwm/set-duty");
-	Bus_RegisterRemoteFunc(NULL,BSP_TIM_GetEncodeCallback,"/tim/encode");
+	Bus_RemoteFuncRegister(NULL,BSP_TIM_SettingCallback,"/tim/setting");
+	Bus_RemoteFuncRegister(NULL,BSP_TIM_SetDutyCallback,"/tim/pwm/set-duty");
+	Bus_RemoteFuncRegister(NULL,BSP_TIM_GetEncodeCallback,"/tim/encode");
 	timService.initFinished=1;
 }
 
@@ -101,7 +105,7 @@ void BSP_TIM_InitInfo(TIMInfo* info,ConfItem* dict)
 	
 	char name[17] = {0};
 	sprintf(name, "/tim%d/update", info->number);
-	info->fastHandle=Bus_CreateReceiverHandle(name);
+	info->fastHandle=Bus_SubscribeTopicFast(name);
 }
 
 //开启TIM硬件
@@ -129,7 +133,7 @@ void BSP_TIM_StartHardware(TIMInfo* info,ConfItem* dict)
 //TIM设置配置远程函数回调
 bool BSP_TIM_SettingCallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
-	if(!Bus_IsMapKeyExist(frame,"tim-x"))
+	if(!Bus_CheckMapKeyExist(frame,"tim-x"))
 		return false;
 	uint8_t timX = Bus_GetMapValue(frame,"tim-x").U8;
 	TIMInfo* timInfo = NULL;
@@ -143,7 +147,7 @@ bool BSP_TIM_SettingCallback(const char* name, SoftBusFrame* frame, void* bindDa
 	}
 	if(!timInfo)
 		return false;
-	if (Bus_CheckMapKeys(frame,{"channel-x","compare-value"}))
+	if (Bus_CheckMapKeysExist(frame,{"channel-x","compare-value"}))
 	{
 		uint8_t	channelX = Bus_GetMapValue(frame,"channel-x").U8;
 		uint32_t compVal = Bus_GetMapValue(frame,"compare-value").U32;
@@ -165,12 +169,12 @@ bool BSP_TIM_SettingCallback(const char* name, SoftBusFrame* frame, void* bindDa
 				break;
 		}
 	}
-	if(Bus_IsMapKeyExist(frame,"auto-reload"))
+	if(Bus_CheckMapKeyExist(frame,"auto-reload"))
 	{
 		uint32_t autoReload = Bus_GetMapValue(frame,"auto-reload").U32;
 		__HAL_TIM_SetAutoreload(timInfo->htim,autoReload);
 	}
-	if(Bus_IsMapKeyExist(frame,"enable"))
+	if(Bus_CheckMapKeyExist(frame,"enable"))
 	{
 		bool enable = Bus_GetMapValue(frame,"enable").Bool;
 		if(enable)
@@ -185,7 +189,7 @@ bool BSP_TIM_SettingCallback(const char* name, SoftBusFrame* frame, void* bindDa
 //TIM设置占空比远程函数回调
 bool BSP_TIM_SetDutyCallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
-	if(!Bus_CheckMapKeys(frame,{"tim-x","channel-x","duty"}))
+	if(!Bus_CheckMapKeysExist(frame,{"tim-x","channel-x","duty"}))
 		return false;
 	uint8_t timX = Bus_GetMapValue(frame,"tim-x").U8;
 	uint8_t	channelX = Bus_GetMapValue(frame,"channel-x").U8;
@@ -222,12 +226,12 @@ bool BSP_TIM_SetDutyCallback(const char* name, SoftBusFrame* frame, void* bindDa
 //TIM获取编码器值远程服务回调
 bool BSP_TIM_GetEncodeCallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
-	if(!Bus_CheckMapKeys(frame,{"tim-x","count"}))
+	if(!Bus_CheckMapKeysExist(frame,{"tim-x","count"}))
 		return false;
 	uint8_t timX = Bus_GetMapValue(frame,"tim-x").U8;
 	uint32_t *count = (uint32_t*)Bus_GetMapValue(frame,"count").Ptr;
 	uint32_t *autoReload=NULL; 
-	if(Bus_IsMapKeyExist(frame,"auto-reload"))
+	if(Bus_CheckMapKeyExist(frame,"auto-reload"))
 		autoReload = (uint32_t *)Bus_GetMapValue(frame,"auto-reload").Ptr;
 	for(uint8_t num = 0;num<timService.timNum;num++)
 	{

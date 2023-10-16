@@ -2,6 +2,8 @@
 #include "softbus.h"
 #include "pid.h"
 #include "motor.h"
+#include "sys_conf.h"
+#include "dependency.h"
 #include "cmsis_os.h"
 
 #ifndef PI
@@ -42,6 +44,8 @@ static Gimbal* GlobalGimbal;
 
 void Gimbal_TaskCallback(void const * argument)
 {
+	Depends_WaitFor(svc_gimbal, {svc_can, svc_ins});
+
 	//进入临界区
 	portENTER_CRITICAL();
 	Gimbal gimbal={0};
@@ -70,7 +74,7 @@ void Gimbal_TaskCallback(void const * argument)
 		int16_t turns = (int32_t)gimbal.relativeAngle / 360; //转数
 		turns = (turns < 0) ? (turns - 1) : turns; //如果是负数多减一圈使偏离角变成正数
 		gimbal.relativeAngle -= turns * 360; //0-360度
-		Bus_BroadcastSend(gimbal.yawRelAngleName, {{"angle", {.F32 = gimbal.relativeAngle}}}); // 广播云台偏离角
+		Bus_PublishTopic(gimbal.yawRelAngleName, {{"angle", {.F32 = gimbal.relativeAngle}}}); // 广播云台偏离角
 		osDelay(gimbal.taskInterval);
 	}
 }
@@ -110,9 +114,9 @@ void Gimbal_Init(Gimbal* gimbal, ConfItem* dict)
 	//不在这里设置电机模式，因为在未设置好零点前，pid会驱使电机达到编码器的零点或者imu的初始化零点
 
 	//注册广播、远程函数回调函数
-	Bus_RegisterReceiver(gimbal, Gimbal_BroadcastCallback, gimbal->imuEulerAngleName);
-	Bus_RegisterRemoteFunc(gimbal, Gimbal_SettingCallback, gimbal->settingName);
-	Bus_RegisterReceiver(gimbal, Gimbal_StopCallback, "/system/stop"); //急停
+	Bus_SubscribeTopic(gimbal, Gimbal_BroadcastCallback, gimbal->imuEulerAngleName);
+	Bus_RemoteFuncRegister(gimbal, Gimbal_SettingCallback, gimbal->settingName);
+	Bus_SubscribeTopic(gimbal, Gimbal_StopCallback, "/system/stop"); //急停
 }
 
 void Gimbal_BroadcastCallback(const char* name, SoftBusFrame* frame, void* bindData)
@@ -121,7 +125,7 @@ void Gimbal_BroadcastCallback(const char* name, SoftBusFrame* frame, void* bindD
 
 	if(!strcmp(name, "/ins/euler-angle"))
 	{
-		if(!Bus_CheckMapKeys(frame, {"yaw", "pitch", "roll"}))
+		if(!Bus_CheckMapKeysExist(frame, {"yaw", "pitch", "roll"}))
 			return;
 		float yaw = Bus_GetMapValue(frame, "yaw").F32;
 		float pitch = Bus_GetMapValue(frame, "pitch").F32;
@@ -133,11 +137,11 @@ bool Gimbal_SettingCallback(const char* name, SoftBusFrame* frame, void* bindDat
 {
 	Gimbal* gimbal = (Gimbal*)bindData;
 
-	if(Bus_IsMapKeyExist(frame, "yaw"))
+	if(Bus_CheckMapKeyExist(frame, "yaw"))
 	{
 		gimbal->angle[0] = Bus_GetMapValue(frame, "yaw").F32;
 	}
-	if(Bus_IsMapKeyExist(frame, "pitch"))
+	if(Bus_CheckMapKeyExist(frame, "pitch"))
 	{
 		gimbal->angle[1] = Bus_GetMapValue(frame, "pitch").F32;
 	}

@@ -3,8 +3,10 @@
 #include "softbus.h"
 #include "motor.h"
 #include "cmsis_os.h"
+#include "dependency.h"
 #include "stm32f4xx.h"
 #include "arm_math.h"
+#include "sys_conf.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -59,15 +61,18 @@ static Chassis* GlobalChassis;
 //底盘任务回调函数
 extern "C" void Chassis_TaskCallback(void const * argument)
 {
+	Depends_WaitFor(svc_chassis, { svc_can });
+
 	//进入临界区
 	portENTER_CRITICAL();
 	Chassis chassis={0};
 	Chassis_Init(&chassis, (ConfItem*)argument);
 	portEXIT_CRITICAL();
 
+	Depends_SignalFinished(svc_chassis);
+
 	GlobalChassis = &chassis;
 	
-	osDelay(2000);
 	while(1)
 	{		
 		/*************计算底盘平移速度**************/
@@ -148,10 +153,10 @@ void Chassis_Init(Chassis* chassis, ConfItem* dict)
 	sprintf(chassis->relAngleName, "/%s/relative-angle", temp);
 	
 	//注册远程函数
-	Bus_RegisterRemoteFunc(chassis, Chassis_SetSpeedCallback, chassis->speedName);
-	Bus_RegisterRemoteFunc(chassis, Chassis_SetAccCallback, chassis->accName);
-	Bus_RegisterRemoteFunc(chassis, Chassis_SetRelativeAngleCallback, chassis->relAngleName);
-	Bus_RegisterReceiver(chassis, Chassis_StopCallback, "/system/stop");
+	Bus_RemoteFuncRegister(chassis, Chassis_SetSpeedCallback, chassis->speedName);
+	Bus_RemoteFuncRegister(chassis, Chassis_SetAccCallback, chassis->accName);
+	Bus_RemoteFuncRegister(chassis, Chassis_SetRelativeAngleCallback, chassis->relAngleName);
+	Bus_SubscribeTopic(chassis, Chassis_StopCallback, "/system/stop");
 }
 
 
@@ -165,19 +170,19 @@ void Chassis_UpdateSlope(Chassis* chassis)
 bool Chassis_SetSpeedCallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
 	Chassis* chassis = (Chassis*)bindData;
-	if(Bus_IsMapKeyExist(frame, "vx"))
+	if(Bus_CheckMapKeyExist(frame, "vx"))
 	{
 		float vx = Bus_GetMapValue(frame, "vx").F32;
 		LIMIT(vx, -chassis->move.maxVx, chassis->move.maxVx);
 		Slope_SetTarget(&chassis->move.xSlope, vx);
 	}
-	if(Bus_IsMapKeyExist(frame, "vy"))
+	if(Bus_CheckMapKeyExist(frame, "vy"))
 	{
 		float vy = Bus_GetMapValue(frame, "vy").F32;
 		LIMIT(vy, -chassis->move.maxVy, chassis->move.maxVy);
 		Slope_SetTarget(&chassis->move.ySlope, vy);
 	}
-	if(Bus_IsMapKeyExist(frame, "vw"))
+	if(Bus_CheckMapKeyExist(frame, "vw"))
 	{
 		chassis->move.vw = Bus_GetMapValue(frame, "vw").F32;
 		LIMIT(chassis->move.vw, -chassis->move.maxVw, chassis->move.maxVw);
@@ -188,9 +193,9 @@ bool Chassis_SetSpeedCallback(const char* name, SoftBusFrame* frame, void* bindD
 bool Chassis_SetAccCallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
 	Chassis* chassis = (Chassis*)bindData;
-	if(Bus_IsMapKeyExist(frame, "ax"))
+	if(Bus_CheckMapKeyExist(frame, "ax"))
 		Slope_SetStep(&chassis->move.xSlope, CHASSIS_ACC2SLOPE(chassis->taskInterval, Bus_GetMapValue(frame, "ax").F32));
-	if(Bus_IsMapKeyExist(frame, "ay"))
+	if(Bus_CheckMapKeyExist(frame, "ay"))
 		Slope_SetStep(&chassis->move.ySlope, CHASSIS_ACC2SLOPE(chassis->taskInterval, Bus_GetMapValue(frame, "ay").F32));
 	return true;
 }
@@ -198,7 +203,7 @@ bool Chassis_SetAccCallback(const char* name, SoftBusFrame* frame, void* bindDat
 bool Chassis_SetRelativeAngleCallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
 	Chassis* chassis = (Chassis*)bindData;
-	if(Bus_IsMapKeyExist(frame, "angle"))
+	if(Bus_CheckMapKeyExist(frame, "angle"))
 		chassis->relativeAngle = Bus_GetMapValue(frame, "angle").F32;
 	return true;
 }

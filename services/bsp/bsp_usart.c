@@ -1,9 +1,11 @@
 #include "config.h"
 #include "softbus.h"
 #include "cmsis_os.h"
-#include <string.h>
 #include "usart.h"
 #include "strict.h"
+#include "dependency.h"
+
+#include <string.h>
 
 #define UART_IRQ \
 	IRQ_FUN(USART1_IRQHandler, 1) \
@@ -77,6 +79,8 @@ void BSP_UART_TaskCallback(void const * argument)
 	portENTER_CRITICAL();
 	BSP_UART_Init((ConfItem*)argument);
 	portEXIT_CRITICAL();
+
+	Depends_SignalFinished(svc_uart);
 	
 	vTaskDelete(NULL);
 }
@@ -90,22 +94,30 @@ void BSP_UART_Init(ConfItem* dict)
 		char confName[] = "uarts/_";
 		confName[6] = num + '0';
 		if(Conf_ItemExist(dict, confName))
-			uartService.uartNum++;
+		{
+			//uartService.uartNum++;
+			// 序号存在，读取UART外设信息
+			ConfItem* uartDict = Conf_GetNode(dict, confName);
+			uint8_t uartX = Conf_GetValue(uartDict, "number", uint8_t, 0);
+
+			// 初始化各UART外设信息
+			BSP_UART_InitInfo(&uartService.uartList[uartX - 1], Conf_GetNode(dict, confName));
+		}
 		else
 			break;
 	}
 	//初始化各uart信息
-	for(uint8_t num = 0; num < uartService.uartNum; num++)
-	{
-		char confName[] = "uarts/_";
-		confName[6] = num + '0';
-		BSP_UART_InitInfo(&uartService.uartList[num], Conf_GetNode(dict, confName));
-	}
+	// for(uint8_t i = 0; i < uartService.uartNum; i++)
+	// {
+	// 	char confName[] = "uarts/_";
+	// 	confName[6] = i + '0';
+	// 	BSP_UART_InitInfo(&uartService.uartList[i], Conf_GetNode(dict, confName));
+	// }
 
 	//注册远程函数
-	Bus_RegisterRemoteFunc(NULL, BSP_UART_BlockCallback, "/uart/trans/block");
-	Bus_RegisterRemoteFunc(NULL, BSP_UART_ItCallback, "/uart/trans/it");
-	Bus_RegisterRemoteFunc(NULL, BSP_UART_DMACallback, "/uart/trans/dma");
+	Bus_RemoteFuncRegister(NULL, BSP_UART_BlockCallback, "/uart/trans/block");
+	Bus_RemoteFuncRegister(NULL, BSP_UART_ItCallback, "/uart/trans/it");
+	Bus_RemoteFuncRegister(NULL, BSP_UART_DMACallback, "/uart/trans/dma");
 	uartService.initFinished = 1;
 }
 
@@ -123,7 +135,7 @@ void BSP_UART_InitInfo(UARTInfo* info, ConfItem* dict)
 	info->recvBuffer.maxBufSize = Conf_GetValue(dict, "max-recv-size", uint16_t, 1);
 	char name[] = "/uart_/recv";
 	name[5] = info->number + '0';
-	info->fastHandle = Bus_CreateReceiverHandle(name);
+	info->fastHandle = Bus_SubscribeTopicFast(name);
 	//初始化接收缓冲区
 	BSP_UART_InitRecvBuffer(info);
 	//开启uart空闲中断
@@ -168,7 +180,7 @@ void BSP_UART_InitRecvBuffer(UARTInfo* info)
 //阻塞回调
 bool BSP_UART_BlockCallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
-	if(!Bus_CheckMapKeys(frame, {"uart-x", "data", "trans-size", "timeout"}))
+	if(!Bus_CheckMapKeysExist(frame, {"uart-x", "data", "trans-size", "timeout"}))
 		return false;
 
 	uint8_t uartX = Bus_GetMapValue(frame, "uart-x").U8;
@@ -182,7 +194,7 @@ bool BSP_UART_BlockCallback(const char* name, SoftBusFrame* frame, void* bindDat
 //中断发送回调
 bool BSP_UART_ItCallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
-	if(!Bus_CheckMapKeys(frame, {"uart-x","data","trans-size"}))
+	if(!Bus_CheckMapKeysExist(frame, {"uart-x","data","trans-size"}))
 		return false;
 
 	uint8_t uartX = Bus_GetMapValue(frame, "uart-x").U8;
@@ -195,7 +207,7 @@ bool BSP_UART_ItCallback(const char* name, SoftBusFrame* frame, void* bindData)
 //DMA发送回调
 bool BSP_UART_DMACallback(const char* name, SoftBusFrame* frame, void* bindData)
 {
-	if(!Bus_CheckMapKeys(frame, {"uart-x","data","trans-size"}))
+	if(!Bus_CheckMapKeysExist(frame, {"uart-x","data","trans-size"}))
 		return false;
 
 	uint8_t uartX = Bus_GetMapValue(frame, "uart-x").U8;
@@ -233,7 +245,7 @@ void BSP_UART_RecvHanlder(UARTInfo* uartInfo)
 	{
 		__HAL_UART_CLEAR_IDLEFLAG(uartInfo->huart);
 		uint16_t recSize=uartInfo->recvBuffer.pos; //此时pos值为一帧数据的长度
-		Bus_FastBroadcastSend(uartInfo->fastHandle, {uartInfo->recvBuffer.data, &recSize}); //空闲中断为一帧，发送一帧数据
+		Bus_PublishTopicFast(uartInfo->fastHandle, {uartInfo->recvBuffer.data, &recSize}); //空闲中断为一帧，发送一帧数据
 		uartInfo->recvBuffer.pos = 0;
 	}
 }
@@ -263,18 +275,18 @@ void BSP_UART_RecvHanlder_DMA(UARTInfo* uartInfo)
 		if (uartInfo->huart->hdmarx->Instance->CR & DMA_SxCR_CT)
 		{
 			//广播接收到的数据
-			Bus_FastBroadcastSend(uartInfo->fastHandle, {uartInfo->recvBuffer.data});
+			Bus_PublishTopicFast(uartInfo->fastHandle, {uartInfo->recvBuffer.data});
 		}
 		else
 		{
 			//广播接收到的数据
-			Bus_FastBroadcastSend(uartInfo->fastHandle, {uartInfo->recvBuffer.data + uartInfo->recvBuffer.maxBufSize / 2});
+			Bus_PublishTopicFast(uartInfo->fastHandle, {uartInfo->recvBuffer.data + uartInfo->recvBuffer.maxBufSize / 2});
 		}
 	}
 	else
 	{
 		//广播接收到的数据
-		Bus_FastBroadcastSend(uartInfo->fastHandle, {uartInfo->recvBuffer.data});
+		Bus_PublishTopicFast(uartInfo->fastHandle, {uartInfo->recvBuffer.data});
 		//使能DMA
 		__HAL_DMA_ENABLE(uartInfo->huart->hdmarx);
 	}

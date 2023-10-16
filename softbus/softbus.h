@@ -57,11 +57,11 @@ typedef void (*SoftBusBroadcastReceiver)(const char* name, SoftBusFrame* frame, 
 typedef bool (*SoftBusRemoteFunction)(const char* name, SoftBusFrame* frame, void* bindData);//远程函数回调函数指针
 
 //操作函数声明(不直接调用，应使用下方define定义的接口)
-int8_t _Bus_MultiRegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, uint16_t namesNum, const char* const * names);
-void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, const SoftBusItemX* items);
-void _Bus_BroadcastSendList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, const SoftBusGenericData list[]);
-bool _Bus_RemoteCallMap(const char* name, uint16_t itemNum, const SoftBusItemX* items);
-uint8_t _Bus_CheckMapKeys(SoftBusFrame* frame, uint16_t keysNum, const char* const * keys);
+int8_t _Bus_SubscribeTopics(void* bindData, SoftBusBroadcastReceiver callback, uint16_t namesNum, const char* const * names);
+void _Bus_PublishTopicMap(const char* name, uint16_t itemNum, const SoftBusItemX* items);
+void _Bus_PublishTopicList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, const SoftBusGenericData list[]);
+bool _Bus_RemoteFuncCallMap(const char* name, uint16_t itemNum, const SoftBusItemX* items);
+uint8_t _Bus_CheckMapKeysExist(SoftBusFrame* frame, uint16_t keysNum, const char* const * keys);
 
 /*
 	@brief 订阅软总线上的一个广播
@@ -70,7 +70,7 @@ uint8_t _Bus_CheckMapKeys(SoftBusFrame* frame, uint16_t keysNum, const char* con
 	@retval 0:成功 -1:堆空间不足 -2:参数为空
 	@note 回调函数的形式应为void callback(const char* name, SoftBusFrame* frame, void* bindData)
 */
-int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, const char* name);
+int8_t Bus_SubscribeTopic(void* bindData, SoftBusBroadcastReceiver callback, const char* name);
 
 /*
 	@brief 订阅软总线上的多个广播
@@ -78,10 +78,10 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	@param callback:广播发布时的回调函数
 	@param ...:广播名称列表
 	@retval 0:成功 -1:堆空间不足 -2:参数为空
-	@example Bus_MultiRegisterReceiver(NULL, callback, {"name1", "name2"});
+	@example Bus_SubscribeTopics(NULL, callback, {"name1", "name2"});
 */
 #ifndef __cplusplus
-#define Bus_MultiRegisterReceiver(bindData, callback,...) _Bus_MultiRegisterReceiver((bindData),(callback),(sizeof(CURLY_INIT(char*[])__VA_ARGS__)/sizeof(char*)),(CURLY_INIT(char*[])__VA_ARGS__))
+#define Bus_SubscribeTopics(bindData, callback,...) _Bus_SubscribeTopics((bindData),(callback),(sizeof(CURLY_INIT(char*[])__VA_ARGS__)/sizeof(char*)),(CURLY_INIT(char*[])__VA_ARGS__))
 #endif
 
 /*
@@ -89,10 +89,10 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	@param name:广播名
 	@param ...:映射表
 	@retval void
-	@example Bus_BroadcastSend("name", {{"key1", {data1}}, {"key2", {data2}}});
+	@example Bus_PublishTopic("name", {{"key1", {data1}}, {"key2", {data2}}});
 */
 #ifndef __cplusplus
-#define Bus_BroadcastSend(name,...) _Bus_BroadcastSendMap((name),(sizeof((SoftBusItemX[])__VA_ARGS__)/sizeof(SoftBusItemX)),((SoftBusItemX[])__VA_ARGS__))
+#define Bus_PublishTopic(name,...) _Bus_PublishTopicMap((name),(sizeof((SoftBusItemX[])__VA_ARGS__)/sizeof(SoftBusItemX)),((SoftBusItemX[])__VA_ARGS__))
 #endif
 
 /*
@@ -100,10 +100,10 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	@param handle:快速句柄
 	@param ...:数据指针列表
 	@retval void
-	@example float value1,value2; Bus_FastBroadcastSend(handle, {{.F32 = value1}, {.F32 = value2}});
+	@example float value1,value2; Bus_PublishTopicFast(handle, {{.F32 = value1}, {.F32 = value2}});
 */
 #ifndef __cplusplus
-#define Bus_FastBroadcastSend(handle,...) _Bus_BroadcastSendList((handle),(sizeof((SoftBusGenericData[])__VA_ARGS__)/sizeof(SoftBusGenericData)),((SoftBusGenericData[])__VA_ARGS__))
+#define Bus_PublishTopicFast(handle,...) _Bus_PublishTopicList((handle),(sizeof((SoftBusGenericData[])__VA_ARGS__)/sizeof(SoftBusGenericData)),((SoftBusGenericData[])__VA_ARGS__))
 #endif
 
 /*
@@ -113,17 +113,17 @@ int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, c
 	@retval 0:成功 -1:堆空间不足 -2:参数为空 -3:远程函数已存在
 	@note 回调函数的形式应为bool callback(const char* name, SoftBusFrame* frame, void* bindData)
 */
-int8_t Bus_RegisterRemoteFunc(void* bindData, SoftBusRemoteFunction callback, const char* name);
+int8_t Bus_RemoteFuncRegister(void* bindData, SoftBusRemoteFunction callback, const char* name);
 
 /*
 	@brief 通过映射表数据帧调用远程函数
 	@param name:远程函数名
 	@param ...:远程函数参数列表(包含参数和返回值)
 	@retval true:成功 false:失败
-	@example Bus_RemoteCall("name", {{"key1", {data1}}, {"key2", {data2}}});
+	@example Bus_RemoteFuncCall("name", {{"key1", {data1}}, {"key2", {data2}}});
 */
 #ifndef __cplusplus
-#define Bus_RemoteCall(name,...) _Bus_RemoteCallMap((name),(sizeof(__VA_ARGS__)/sizeof(SoftBusItemX)),(CURLY_INIT(SoftBusItemX[])__VA_ARGS__))
+#define Bus_RemoteFuncCall(name,...) _Bus_RemoteFuncCallMap((name),(sizeof(__VA_ARGS__)/sizeof(SoftBusItemX)),(CURLY_INIT(SoftBusItemX[])__VA_ARGS__))
 #endif
 
 /*
@@ -141,17 +141,17 @@ const SoftBusItemX* Bus_GetMapItem(SoftBusFrame* frame, const char* key);
 	@param key:数据字段的名字
 	@retval 0:不存在 1:存在
 */
-#define Bus_IsMapKeyExist(frame,key) (Bus_GetMapItem((frame),(key)) != NULL)
+#define Bus_CheckMapKeyExist(frame,key) (Bus_GetMapItem((frame),(key)) != NULL)
 
 /*
 	@brief 判断给定key列表是否全部存在于映射表数据帧中
 	@param frame:数据帧的指针
 	@param ...:要判断的key列表
 	@retval 0:任意一个key不存在 1:所有key都存在
-	@example if(Bus_CheckMapKeys(frame, {"key1", "key2", "key3"})) { ... }
+	@example if(Bus_CheckMapKeysExist(frame, {"key1", "key2", "key3"})) { ... }
 */
 #ifndef __cplusplus
-#define Bus_CheckMapKeys(frame,...) _Bus_CheckMapKeys((frame),(sizeof(CURLY_INIT(char*[])__VA_ARGS__)/sizeof(char*)),(CURLY_INIT(const char* const[])__VA_ARGS__))
+#define Bus_CheckMapKeysExist(frame,...) _Bus_CheckMapKeysExist((frame),(sizeof(CURLY_INIT(char*[])__VA_ARGS__)/sizeof(char*)),(CURLY_INIT(const char* const[])__VA_ARGS__))
 #endif
 
 /*
@@ -169,10 +169,10 @@ const SoftBusItemX* Bus_GetMapItem(SoftBusFrame* frame, const char* key);
 	@brief 通过广播名创建快速广播句柄
 	@param name:广播名
 	@retval 创建出的快速句柄
-	@example SoftBusReceiverHandle handle = Bus_CreateReceiverHandle("name");
+	@example SoftBusReceiverHandle handle = Bus_SubscribeTopicFast("name");
 	@note 应仅在程序初始化时创建一次，而不是每次发布前创建
 */
-SoftBusReceiverHandle Bus_CreateReceiverHandle(const char* name);
+SoftBusReceiverHandle Bus_SubscribeTopicFast(const char* name);
 
 /*
 	@brief 获取列表数据帧中指定索引的数据
