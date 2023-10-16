@@ -78,7 +78,7 @@ void _Depends_WaitFor(Module waitingModule, Module* modules, size_t count)
 
     // 把mask和依赖位图单元做AND运算
     for (size_t i = 0; i < DEPENDENCY_BITMAP_UNIT_SIZE; i++)
-        DependencyBitmap[waitingModule * DEPENDENCY_BITMAP_UNIT_SIZE + i] &= mask[i];
+        DependencyBitmap[waitingModule * DEPENDENCY_BITMAP_UNIT_SIZE + i] |= mask[i];
 
     // 为此任务启用依赖初始化完毕的通知
     Depends_EnableNotificationForService(waitingModule);
@@ -100,7 +100,10 @@ void Depends_SignalFinished(Module module)
     {
         DependencyBitmap[i * DEPENDENCY_BITMAP_UNIT_SIZE + module / 8] &= mask;
         // 如果此时发现某个任务的依赖已经全部初始化完成，那么就唤醒它
-        if (Depends_HasAllDependencyFinished(i))
+        if (Depends_HasAllDependencyFinished(i)) {
             vTaskResume(serviceTaskHandle[i]);
+            // 清除该任务的通知flag
+            DependencyBitmap[i * DEPENDENCY_BITMAP_UNIT_SIZE + DEPENDENCY_BITMAP_UNIT_SIZE - 1] &= 0x7F;
+        }
     }
 }
