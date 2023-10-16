@@ -71,7 +71,6 @@ void BSP_CAN_TaskCallback(void const * argument)
 	BSP_CAN_Init((ConfItem*)argument);
 	portEXIT_CRITICAL();
 
-	osDelay(10000);
 	Depends_SignalFinished(svc_can);
 	
 	vTaskDelete(NULL);
