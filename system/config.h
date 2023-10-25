@@ -48,7 +48,7 @@ typedef struct {
 #endif
 
 //获取配置值，不应直接调用，应使用下方的封装宏
-ConfItem* _Conf_GetValue(ConfItem* dict, const char* name);
+const ConfItem* _Conf_GetValue(const ConfItem* dict, const char* name);
 
 // 获取外设句柄，可以直接用但是提供了封装宏
 void* _Conf_GetPeriphHandle(const char* name);

@@ -40,7 +40,7 @@ static uint8_t accGetDataCmd[8]={spiReadAddr(BMI088_ACCEL_XOUT_L)};
 static uint8_t gyroGetDataCmd[7]={spiReadAddr(BMI088_GYRO_X_L)};
 static uint8_t tmpGetDataCmd[4]={spiReadAddr(BMI088_TEMP_M)};
 
-void Bmi088::Init(ConfItem* conf)
+void Bmi088::Init(const ConfItem* conf)
 {
 	auto imuConf = Conf_GetNode(conf, "imu");
 

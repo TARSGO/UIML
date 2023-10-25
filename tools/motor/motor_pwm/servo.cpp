@@ -2,7 +2,7 @@
 #include "motor.h"
 #include "config.h"
 
-void Servo::Init(ConfItem* dict)
+void Servo::Init(const ConfItem* dict)
 {
 	//初始化电机绑定TIM信息
 	m_timInfo.timX = Conf_GetValue(dict,"tim-x",uint8_t,0);
@@ -17,9 +17,10 @@ bool Servo::SetTarget(float targetValue)
 {
 	m_target = targetValue; //无实际用途，可用于debug
 	float pwmDuty = m_target / m_maxAngle * (m_maxDuty - m_minDuty) + m_minDuty;
-	Bus_RemoteCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_timInfo.timX}},
+	Bus_RemoteFuncCall("/tim/pwm/set-duty", {{"tim-x", {.U8 = m_timInfo.timX}},
 										 {"channel-x", {.U8 = m_timInfo.channelX}},
 										 {"duty", {.F32 = pwmDuty}}});
+	return true;
 }
 
 

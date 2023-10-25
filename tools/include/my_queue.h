@@ -18,9 +18,9 @@ typedef struct _Queue
 	uint16_t maxSize;
 	uint16_t front,rear;
 	uint8_t initialized;
+	uint8_t bufElemSize;//每个元素的大小
 	//数据保存区(可选用)
 	void *buffer;
-	uint8_t bufElemSize;//每个元素的大小
 }Queue;
 
 /**************接口函数***************/

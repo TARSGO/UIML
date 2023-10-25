@@ -20,7 +20,7 @@ extern "C" {
 #endif
 
 typedef struct _SoftBusFrame {
-	void* data;
+	const void* data;
 	uint16_t size;
 } SoftBusFrame; // 数据帧
 
@@ -55,6 +55,9 @@ typedef struct _SoftBusItemX {
 typedef void* SoftBusReceiverHandle;//软总线快速句柄
 typedef void (*SoftBusBroadcastReceiver)(const char* name, SoftBusFrame* frame, void* bindData);//广播回调函数指针
 typedef bool (*SoftBusRemoteFunction)(const char* name, SoftBusFrame* frame, void* bindData);//远程函数回调函数指针
+
+// 定义函数使用的便利宏
+#define BUS_REMOTEFUNC(func_name) bool func_name(const char* name, SoftBusFrame* frame, void* bindData)
 
 //操作函数声明(不直接调用，应使用下方define定义的接口)
 int8_t _Bus_SubscribeTopics(void* bindData, SoftBusBroadcastReceiver callback, uint16_t namesNum, const char* const * names);

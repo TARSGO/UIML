@@ -31,7 +31,7 @@ class BasicMotor
 {
 public:
 	BasicMotor() : m_mode(MOTOR_STOP_MODE) {};
-	virtual void Init(ConfItem* conf) = 0;
+	virtual void Init(const ConfItem* conf) = 0;
 	virtual bool SetMode(MotorCtrlMode mode) = 0;
 	virtual void EmergencyStop() = 0;
 
@@ -39,7 +39,7 @@ public:
 	virtual bool SetTotalAngle(float angle) = 0;
 	virtual float GetData(MotorDataType type) = 0;
 
-	static BasicMotor* Create(ConfItem* conf);
+	static BasicMotor* Create(const ConfItem* conf);
 
 protected:
 	MotorCtrlMode m_mode;
@@ -64,7 +64,7 @@ class DummyMotor : public BasicMotor
 {
 public:
 	DummyMotor() : BasicMotor() {};
-	virtual void Init(ConfItem* conf) override {};
+	virtual void Init(const ConfItem* conf) override {};
 	virtual bool SetMode(MotorCtrlMode mode) override { return false; }
 	virtual void EmergencyStop() override {};
 
@@ -77,7 +77,7 @@ class DjiCanMotor : public CanMotor
 {
 public:
 	DjiCanMotor() : CanMotor() {};
-	virtual void Init(ConfItem* conf) override;
+	virtual void Init(const ConfItem* conf) override;
 	virtual bool SetMode(MotorCtrlMode mode) override;
 	virtual void EmergencyStop() override;
 
@@ -131,7 +131,7 @@ class M3508 final : public DjiCanMotor
 {
 public:
 	M3508() : DjiCanMotor() {};
-	virtual void Init(ConfItem* conf) override;
+	virtual void Init(const ConfItem* conf) override;
 
 private:
 	virtual void CanTransmit(uint16_t output) override;
@@ -142,7 +142,7 @@ class M6020 final : public DjiCanMotor
 {
 public:
 	M6020() : DjiCanMotor() {};
-	virtual void Init(ConfItem* conf) override;
+	virtual void Init(const ConfItem* conf) override;
 	// 6020没有电流反馈，拒绝使用扭矩模式
 	virtual bool SetMode(MotorCtrlMode mode) override;
 
@@ -155,7 +155,7 @@ class M2006 final : public DjiCanMotor
 {
 public:
 	M2006() : DjiCanMotor() {};
-	virtual void Init(ConfItem* conf) override;
+	virtual void Init(const ConfItem* conf) override;
 
 private:
 	virtual void CanTransmit(uint16_t output) override;
@@ -166,7 +166,7 @@ class DcMotor : public BasicMotor
 {
 public:
 	DcMotor() : BasicMotor() {};
-	virtual void Init(ConfItem* conf);
+	virtual void Init(const ConfItem* conf);
 	virtual bool SetMode(MotorCtrlMode mode);
 	virtual void EmergencyStop();
 
@@ -207,14 +207,14 @@ protected:
 	void ControllerUpdate(float target);
 
 private:
-	void TimerInit(ConfItem* dict); // 定时器初始化
+	void TimerInit(const ConfItem* dict); // 定时器初始化
 };
 
 class Servo : public BasicMotor
 {
 public:
 	Servo() : BasicMotor() {};
-	virtual void Init(ConfItem* conf);
+	virtual void Init(const ConfItem* conf);
 	virtual bool SetMode(MotorCtrlMode mode) { return false; }
 	virtual void EmergencyStop() { }
 

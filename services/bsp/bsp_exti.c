@@ -4,6 +4,7 @@
 #include "config.h"
 #include "gpio.h"
 #include "stdio.h"
+#include "stm32f407xx.h"
 
 //EXTI GPIO信息
 typedef struct
@@ -21,8 +22,8 @@ typedef struct {
 }EXTIService;
 
 //函数声明
-void BSP_EXTI_Init(ConfItem* dict);
-void BSP_EXIT_InitInfo(EXTIInfo* info, ConfItem* dict);
+void BSP_EXTI_Init(const ConfItem* dict);
+void BSP_EXIT_InitInfo(EXTIInfo* info, const ConfItem* dict);
 
 EXTIService extiService={0};
 
@@ -49,7 +50,7 @@ void BSP_EXTI_TaskCallback(void const * argument)
 	vTaskDelete(NULL);
 }
 //EXTI初始化
-void BSP_EXTI_Init(ConfItem* dict)
+void BSP_EXTI_Init(const ConfItem* dict)
 {
 	//计算用户配置的exit数量
 	extiService.extiNum = 0;
@@ -73,12 +74,12 @@ void BSP_EXTI_Init(ConfItem* dict)
 }
 
 //初始化EXTI信息
-void BSP_EXIT_InitInfo(EXTIInfo* info, ConfItem* dict)
+void BSP_EXIT_InitInfo(EXTIInfo* info, const ConfItem* dict)
 {
 	uint8_t pin = Conf_GetValue(dict, "pin-x", uint8_t, 0);
 	char gpioName[] = "gpio_";
 	gpioName[5] = Conf_GetValue(dict, "gpio-x", uint8_t, 0) + 'A';
-	info[pin].gpioX = Conf_GetPeriphHandle(gpioName, GPIO_TypeDef*);
+	info[pin].gpioX = (GPIO_TypeDef*)Conf_GetPeriphHandle(gpioName, GPIO_TypeDef*);
 	char name[12] = {0};
 	sprintf(name,"/exti/pin%d",pin);
 	//重新映射至GPIO_PIN=2^pin

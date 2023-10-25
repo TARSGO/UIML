@@ -12,7 +12,7 @@ void DcMotor::TimerCallback(void const *argument)
 	self->ControllerUpdate(self->m_target);
 }
 
-void DcMotor::Init(ConfItem* dict)
+void DcMotor::Init(const ConfItem* dict)
 {
 	//电机减速比
 	m_reductionRatio = Conf_GetValue(dict, "reduction-ratio", float, 19.0f);//电机减速比参数
@@ -32,7 +32,7 @@ void DcMotor::Init(ConfItem* dict)
 }
 
 //初始化tim
-void DcMotor::TimerInit(ConfItem* dict)
+void DcMotor::TimerInit(const ConfItem* dict)
 {
 	m_posRotateTim.timX = Conf_GetValue(dict,"pos-rotate-tim/tim-x",uint8_t,0);
 	m_posRotateTim.channelX = Conf_GetValue(dict,"pos-rotate-tim/channel-x",uint8_t,0);
@@ -118,6 +118,7 @@ void DcMotor::ControllerUpdate(float reference)
 //设置电机期望值
 bool DcMotor::SetTarget(float targetValue)
 {
+	// FIXME: Else分支真的可以直接设置吗
 	if(m_mode == MOTOR_ANGLE_MODE)
 	{
 		m_target = Degree2Code(targetValue, m_reductionRatio,m_circleEncode);
@@ -130,6 +131,8 @@ bool DcMotor::SetTarget(float targetValue)
 	{
 		m_target = targetValue;
 	}
+
+	return true;
 }
 
 //切换电机模式

@@ -18,7 +18,7 @@ float Filter_Cala(Filter *filter, float data);
 
 Filter* Filter_Init(ConfItem* dict)
 {
-	char* filterType = Conf_GetValue(dict, "type", const char*, NULL);
+	const char* filterType = Conf_GetValue(dict, "type", const char*, NULL);
 
 	Filter *filter = NULL;
 	//判断属于哪个子类

@@ -30,8 +30,8 @@ typedef struct
 
 //函数声明
 void BSP_TIM_Init(ConfItem* dict);
-void BSP_TIM_InitInfo(TIMInfo* info,ConfItem* dict);
-void BSP_TIM_StartHardware(TIMInfo* info,ConfItem* dict);
+void BSP_TIM_InitInfo(TIMInfo* info, const ConfItem* dict);
+void BSP_TIM_StartHardware(TIMInfo* info, const ConfItem* dict);
 bool BSP_TIM_SetDutyCallback(const char* name, SoftBusFrame* frame, void* bindData);
 bool BSP_TIM_GetEncodeCallback(const char* name, SoftBusFrame* frame, void* bindData);
 bool BSP_TIM_SettingCallback(const char* name, SoftBusFrame* frame, void* bindData);
@@ -94,7 +94,7 @@ void BSP_TIM_Init(ConfItem* dict)
 }
 
 //初始化TIM信息
-void BSP_TIM_InitInfo(TIMInfo* info,ConfItem* dict)
+void BSP_TIM_InitInfo(TIMInfo* info, const ConfItem* dict)
 {
 	info->number = Conf_GetValue(dict,"number",uint8_t,0);
 
@@ -109,7 +109,7 @@ void BSP_TIM_InitInfo(TIMInfo* info,ConfItem* dict)
 }
 
 //开启TIM硬件
-void BSP_TIM_StartHardware(TIMInfo* info,ConfItem* dict)
+void BSP_TIM_StartHardware(TIMInfo* info, const ConfItem* dict)
 {
 	if(!strcmp(Conf_GetValue(dict,"mode", const char*, NULL),"encode"))
 	{

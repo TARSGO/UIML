@@ -4,7 +4,7 @@
 #include "config.h"
 #include "string.h"
 
-void DjiCanMotor::Init(ConfItem* dict)
+void DjiCanMotor::Init(const ConfItem* dict)
 {
 	// 公共初始化部分
 	// 注意：必须设定好减速比与CAN信息

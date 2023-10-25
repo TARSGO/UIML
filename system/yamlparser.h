@@ -1,4 +1,6 @@
 
+#pragma once
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -32,9 +34,9 @@ const struct UimlYamlNode* UimlYamlGetValueByPath(const struct UimlYamlNode* inp
 // {
 // public:
 //     UimlYamlNodeObject() = delete;
-//     UimlYamlNodeObject(UimlYamlNode* node) : m_node(node) {}
+//     UimlYamlNodeObject(const UimlYamlNode* node) : m_node(node) {}
     
-//     operator UimlYamlNode*() const { return m_node; }
+//     operator const UimlYamlNode*() const { return m_node; }
     
 //     UimlYamlNodeObject operator[](const char* childName) const
 //     {
@@ -42,6 +44,6 @@ const struct UimlYamlNode* UimlYamlGetValueByPath(const struct UimlYamlNode* inp
 //     }
 
 // private:
-//     UimlYamlNode* m_node;
+//     const UimlYamlNode* m_node;
 // };
 #endif
