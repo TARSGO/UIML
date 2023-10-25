@@ -55,6 +55,7 @@
 	SERVICE(uart, BSP_UART_TaskCallback, osPriorityNormal,512) \
 	SERVICE(spi, BSP_SPI_TaskCallback, osPriorityNormal,512) \
 	SERVICE(tim, BSP_TIM_TaskCallback, osPriorityNormal,512) \
+	SERVICE(beep, Beep_TaskCallback, osPriorityNormal,256) \
 	SERVICE(ins, INS_TaskCallback, osPriorityNormal,1024) \
 	SERVICEX(gimbal, Gimbal_TaskCallback, osPriorityNormal,256) \
 	SERVICEX(shooter, Shooter_TaskCallback, osPriorityNormal,256) \

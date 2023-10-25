@@ -179,6 +179,11 @@ ins:
       max-i: 0.15
       max-out: 1
 
+beep:
+  timer:
+    name: "tim4"
+    clockkhz: 168000
+
 # BSP配置
 can:
   cans:
@@ -227,5 +232,11 @@ spi:
           gpio-x: "A"
           pin: 4
           name: "acc"
+
+#tim:
+#  tims:
+#    0:
+#      number: 4
+#      mode: pwm
 )";
 }
