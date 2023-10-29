@@ -68,4 +68,4 @@ typedef char BeepCmd[];
 #define BEEP_B7     (char)107
 
 #define BEEP_LOWEST_PITCH BEEP_C3
-#define BEEP_HIGHEST_PITCH BEEP_B5
+#define BEEP_HIGHEST_PITCH BEEP_B7

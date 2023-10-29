@@ -52,7 +52,7 @@ struct BeepCommand {
 // 重启软件定时器便利函数
 inline void Beep_StartTimer()
 {
-    osTimerStart(Beep.Timer, 10);
+    osTimerStart(Beep.Timer, 100);
     Beep.isTimerRunning = true;
     Beep.htim->Instance->CNT = 0;
 }
@@ -80,6 +80,14 @@ inline void Beep_SetFrequency(uint16_t freq)
     Beep.htim->Instance->ARR = 100000 / freq;
     Beep.htim->Instance->CCR3 = Beep.htim->Instance->ARR / 2;
     Beep.htim->Instance->CNT = 0;
+}
+
+// 频率getter（防炒饭）
+inline uint16_t Beep_NoteToFrequency(uint8_t note) {
+    if (note > BEEP_HIGHEST_PITCH || note < BEEP_LOWEST_PITCH)
+        return 0;
+    else
+        return BeepFrequencyTable[note - BEEP_LOWEST_PITCH];
 }
 
 inline void Beep_StopBeep()
@@ -122,7 +130,7 @@ void Beep_Init(ConfItem* conf)
     // API中给出最高音高为B5(988Hz)周期为0.00101214s，按当前精度取整到0.00101s后实际频率为990Hz，误差约在可接受范围内
     htim->Instance->PSC = timerClock / 100;
 
-    // 启动0.01s定时器
+    // 启动0.1s定时器
     osTimerDef(BeepTimer, Beep_TimerCallback);
     Beep.Timer = osTimerCreate(osTimer(BeepTimer), osTimerPeriodic, nullptr);
     Beep_StartTimer();
@@ -181,15 +189,12 @@ void Beep_TimerCallback(const void* arg)
             BeepCommand cmd;
             xQueueReceive(Beep.urgentCmdQueue, &cmd, 0);
             Beep.urgentCmdDueTime = cmd.Duration;
-            Beep_SetFrequency(BeepFrequencyTable[cmd.Note - BEEP_LOWEST_PITCH]);
-
-            if (!uxQueueMessagesWaiting(Beep.urgentCmdQueue))
-            {
-                checkEndOfNotes = true;
-                Beep.urgentCmdDueTime = UINT8_MAX;
-                // 让低优先级响，如果低优先级没有东西（为0）会停下来
-                Beep_SetFrequency(Beep.normalPriorityPitch);
-            }
+            Beep_SetFrequency(Beep_NoteToFrequency(cmd.Note));
+        } else {
+            checkEndOfNotes = true;
+            Beep.urgentCmdDueTime = UINT8_MAX;
+            // 让低优先级响，如果低优先级没有东西（为0）会停下来
+            Beep_SetFrequency(Beep.normalPriorityPitch);
         }
     }
 
@@ -203,7 +208,7 @@ void Beep_TimerCallback(const void* arg)
 
             // 不能抢占高优先级
             if (Beep.urgentCmdDueTime == UINT8_MAX)
-                Beep_SetFrequency((Beep.normalPriorityPitch = BeepFrequencyTable[cmd.Note - BEEP_LOWEST_PITCH]));
+                Beep_SetFrequency((Beep.normalPriorityPitch = Beep_NoteToFrequency(cmd.Note)));
             Beep.normalCmdDueTime = cmd.Duration;
         }
         else
@@ -213,8 +218,11 @@ void Beep_TimerCallback(const void* arg)
         }
     }
 
-    // 如果队列已空，暂停定时器
-    if (checkEndOfNotes && !uxQueueMessagesWaiting(Beep.normalCmdQueue) && !uxQueueMessagesWaiting(Beep.urgentCmdQueue))
+    // 如果队列已空，而且普通优先度的命令已经执行完，暂停定时器
+    if (checkEndOfNotes &&
+        Beep.normalCmdDueTime == UINT8_MAX &&
+        !uxQueueMessagesWaiting(Beep.normalCmdQueue) &&
+        !uxQueueMessagesWaiting(Beep.urgentCmdQueue))
     {
         // 停止蜂鸣
         Beep_StopBeep();
