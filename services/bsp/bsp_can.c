@@ -140,7 +140,7 @@ void BSP_CAN_InitInfo(CANInfo* info, ConfItem* dict)
 
 	char name[] = "/can_/recv";
 	name[4] = info->number + '0';
-	info->fastHandle = Bus_SubscribeTopicFast(name);
+	info->fastHandle = Bus_GetFastTopicHandle(name);
 }
 
 //初始化硬件参数

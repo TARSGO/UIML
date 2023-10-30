@@ -31,7 +31,7 @@ extern "C" {
 // 	char *name; //配置名
 // 	void *value; //配置值
 // } ConfItem;
-typedef struct UimlYamlNode ConfItem;
+typedef const struct UimlYamlNode ConfItem;
 
 // 外设句柄表
 typedef struct {
@@ -48,7 +48,7 @@ typedef struct {
 #endif
 
 //获取配置值，不应直接调用，应使用下方的封装宏
-const ConfItem* _Conf_GetValue(const ConfItem* dict, const char* name);
+ConfItem* _Conf_GetValue(ConfItem* dict, const char* name);
 
 // 获取外设句柄，可以直接用但是提供了封装宏
 void* _Conf_GetPeriphHandle(const char* name);

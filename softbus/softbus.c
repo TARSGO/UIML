@@ -173,7 +173,7 @@ void _Bus_PublishTopicList(SoftBusReceiverHandle receiverHandle, uint16_t listNu
 	}
 }
 
-SoftBusReceiverHandle Bus_SubscribeTopicFast(const char* name)
+SoftBusReceiverHandle Bus_GetFastTopicHandle(const char* name)
 {
 	if(!name)
 		return NULL;
@@ -192,7 +192,7 @@ SoftBusReceiverHandle Bus_SubscribeTopicFast(const char* name)
 		}
 	}
 	Bus_SubscribeTopic(NULL, Bus_EmptyBroadcastReceiver, name);//未匹配到receiver,注册一个空回调函数
-	return Bus_SubscribeTopicFast(name);//递归调用
+	return Bus_GetFastTopicHandle(name);//递归调用
 }
 
 int8_t Bus_RemoteFuncRegister(void* bindData, SoftBusRemoteFunction callback, const char* name)

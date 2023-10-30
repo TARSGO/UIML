@@ -18,7 +18,7 @@ void TestSoftBusFunctionality() {
     std::cerr << __FUNCTION__ << std::endl;
 
     // Create fast broadcast handle
-    auto fastBroadcastHandle = Bus_SubscribeTopicFast("/test/fast_broadcast");
+    auto fastBroadcastHandle = Bus_GetFastTopicHandle("/test/fast_broadcast");
 
     // Connect sources to sinks
     Bus_SubscribeTopic(nullptr, FastBroadcastEndpoint, "/test/fast_broadcast");

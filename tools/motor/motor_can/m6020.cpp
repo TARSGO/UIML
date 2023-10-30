@@ -24,7 +24,7 @@ void M6020::Init(ConfItem* dict)
 	motorName = motorName ? motorName : "m6020";
 	char* stallName = (char*)MOTOR_MALLOC_PORT(strlen(stallFormat) - 2 + strlen(motorName));
 	sprintf(stallName, stallFormat, motorName); // 格式化字符串
-	m_stallTopic = Bus_SubscribeTopicFast(stallName); // 创建话题句柄
+	m_stallTopic = Bus_GetFastTopicHandle(stallName); // 创建话题句柄
 	MOTOR_FREE_PORT(stallName); // 释放内存
 
 	// 软件定时器

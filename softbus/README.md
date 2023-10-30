@@ -111,7 +111,7 @@ Bus_PublishTopic("topic1", {
 
 /* 快速发布方式 */
 //创建快速句柄(只在程序初始化时创建一次)
-SoftBusReceiverHandle handle = Bus_SubscribeTopicFast("topic2"); 
+SoftBusReceiverHandle handle = Bus_GetFastTopicHandle("topic2"); 
 //发布数据帧
 uint16_t value = 0x201; //要发布的第一个值
 uint8_t array[2] = {0x20, 0x01}; //要发布的第二个值

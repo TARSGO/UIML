@@ -172,10 +172,10 @@ const SoftBusItemX* Bus_GetMapItem(SoftBusFrame* frame, const char* key);
 	@brief 通过广播名创建快速广播句柄
 	@param name:广播名
 	@retval 创建出的快速句柄
-	@example SoftBusReceiverHandle handle = Bus_SubscribeTopicFast("name");
+	@example SoftBusReceiverHandle handle = Bus_GetFastTopicHandle("name");
 	@note 应仅在程序初始化时创建一次，而不是每次发布前创建
 */
-SoftBusReceiverHandle Bus_SubscribeTopicFast(const char* name);
+SoftBusReceiverHandle Bus_GetFastTopicHandle(const char* name);
 
 /*
 	@brief 获取列表数据帧中指定索引的数据

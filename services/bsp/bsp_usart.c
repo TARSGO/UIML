@@ -135,7 +135,7 @@ void BSP_UART_InitInfo(UARTInfo* info, ConfItem* dict)
 	info->recvBuffer.maxBufSize = Conf_GetValue(dict, "max-recv-size", uint16_t, 1);
 	char name[] = "/uart_/recv";
 	name[5] = info->number + '0';
-	info->fastHandle = Bus_SubscribeTopicFast(name);
+	info->fastHandle = Bus_GetFastTopicHandle(name);
 	//初始化接收缓冲区
 	BSP_UART_InitRecvBuffer(info);
 	//开启uart空闲中断

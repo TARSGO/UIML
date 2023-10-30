@@ -120,7 +120,7 @@ void BSP_SPI_InitInfo(SPIInfo* info, ConfItem* dict)
 
     char name[17] = {0};
     sprintf(name, "/spi%d/recv", info->number);
-    info->fastHandle=Bus_SubscribeTopicFast(name);
+    info->fastHandle=Bus_GetFastTopicHandle(name);
     osSemaphoreDef(lock);
     info->lock = osSemaphoreCreate(osSemaphore(lock), 1);
     //初始化片选引脚

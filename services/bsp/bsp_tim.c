@@ -105,7 +105,7 @@ void BSP_TIM_InitInfo(TIMInfo* info, ConfItem* dict)
 	
 	char name[17] = {0};
 	sprintf(name, "/tim%d/update", info->number);
-	info->fastHandle=Bus_SubscribeTopicFast(name);
+	info->fastHandle=Bus_GetFastTopicHandle(name);
 }
 
 //开启TIM硬件

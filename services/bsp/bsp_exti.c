@@ -84,7 +84,7 @@ void BSP_EXIT_InitInfo(EXTIInfo* info, ConfItem* dict)
 	sprintf(name,"/exti/pin%d",pin);
 	//重新映射至GPIO_PIN=2^pin
 	info[pin].pin = 1 << pin;
-	info[pin].fastHandle = Bus_SubscribeTopicFast(name);
+	info[pin].fastHandle = Bus_GetFastTopicHandle(name);
 }
 
 
