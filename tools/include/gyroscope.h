@@ -9,7 +9,7 @@ class BasicGyroscope
 public:
     BasicGyroscope() {};
 
-    virtual void Init(const ConfItem* conf) = 0;
+    virtual void Init(ConfItem* conf) = 0;
     virtual bool Acquire() = 0;
 
     virtual void GetAccelerometerData(float& ax, float& ay, float& az) = 0;
@@ -24,7 +24,7 @@ class Bmi088 final : public BasicGyroscope
 public:
     Bmi088() : BasicGyroscope() {};
 
-    virtual void Init(const ConfItem* conf) override;
+    virtual void Init(ConfItem* conf) override;
     virtual bool Acquire() override;
 
     virtual void GetAccelerometerData(float& ax, float& ay, float& az) override;

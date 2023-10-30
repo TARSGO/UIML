@@ -42,8 +42,8 @@ SPIService spiService = {0};
 
 //函数声明
 void BSP_SPI_Init(ConfItem* dict);
-void BSP_SPI_InitInfo(SPIInfo* info, const ConfItem* dict);
-void BSP_SPI_InitCS(SPIInfo* info, const ConfItem* dict);
+void BSP_SPI_InitInfo(SPIInfo* info, ConfItem* dict);
+void BSP_SPI_InitCS(SPIInfo* info, ConfItem* dict);
 bool BSP_SPI_DMACallback(const char* name, SoftBusFrame* frame, void* bindData);
 bool BSP_SPI_BlockCallback(const char* name, SoftBusFrame* frame, void* bindData);
 
@@ -109,7 +109,7 @@ void BSP_SPI_Init(ConfItem* dict)
     spiService.initFinished = 1;
 }
 //初始化spi信息
-void BSP_SPI_InitInfo(SPIInfo* info, const ConfItem* dict)
+void BSP_SPI_InitInfo(SPIInfo* info, ConfItem* dict)
 {
     info->number = Conf_GetValue(dict,"number",uint8_t,0);
 
@@ -132,7 +132,7 @@ void BSP_SPI_InitInfo(SPIInfo* info, const ConfItem* dict)
 }
 
 //初始化片选引脚
-void BSP_SPI_InitCS(SPIInfo* info, const ConfItem* dict)
+void BSP_SPI_InitCS(SPIInfo* info, ConfItem* dict)
 {
     for(uint8_t num = 0; ; num++)
     {

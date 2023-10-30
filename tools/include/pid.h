@@ -16,8 +16,8 @@ class PID
 {
 public:
     PID();
-    PID(const ConfItem* conf);
-    void Init(const ConfItem* conf);
+    PID(ConfItem* conf);
+    void Init(ConfItem* conf);
     float SingleCalc(float reference, float feedback);
     float FeedforwardCalc(float reference, float feedback, const std::function<float(float)> lambda);
     void Clear();
@@ -33,8 +33,8 @@ class CascadePID
 {
 public:
     CascadePID() {};
-    CascadePID(const ConfItem* conf);
-    void Init(const ConfItem* conf);
+    CascadePID(ConfItem* conf);
+    void Init(ConfItem* conf);
     float CascadeCalc(float angleRef, float angleFeedback, float speedFeedback);
     void Clear();
 

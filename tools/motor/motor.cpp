@@ -11,7 +11,7 @@
         break; \
     } 
 
-BasicMotor* BasicMotor::Create(const ConfItem* conf)
+BasicMotor* BasicMotor::Create(ConfItem* conf)
 {
     BasicMotor* ret = NULL;
     auto motorTypeString = Conf_GetValue(conf, "type", const char*, "");

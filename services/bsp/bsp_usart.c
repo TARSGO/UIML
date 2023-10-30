@@ -41,8 +41,8 @@ typedef struct {
 
 UARTService uartService = {0};
 //函数声明
-void BSP_UART_Init(const ConfItem* dict);
-void BSP_UART_InitInfo(UARTInfo* info, const ConfItem* dict);
+void BSP_UART_Init(ConfItem* dict);
+void BSP_UART_InitInfo(UARTInfo* info, ConfItem* dict);
 bool BSP_UART_BlockCallback(const char* name, SoftBusFrame* frame, void* bindData);
 bool BSP_UART_ItCallback(const char* name, SoftBusFrame* frame, void* bindData);
 bool BSP_UART_DMACallback(const char* name, SoftBusFrame* frame, void* bindData);
@@ -85,7 +85,7 @@ void BSP_UART_TaskCallback(void const * argument)
 	vTaskDelete(NULL);
 }
 
-void BSP_UART_Init(const ConfItem* dict)
+void BSP_UART_Init(ConfItem* dict)
 {
 	//计算用户配置的uart数量
 	uartService.uartNum = 0;
@@ -97,7 +97,7 @@ void BSP_UART_Init(const ConfItem* dict)
 		{
 			//uartService.uartNum++;
 			// 序号存在，读取UART外设信息
-			const ConfItem* uartDict = Conf_GetNode(dict, confName);
+			ConfItem* uartDict = Conf_GetNode(dict, confName);
 			uint8_t uartX = Conf_GetValue(uartDict, "number", uint8_t, 0);
 
 			// 初始化各UART外设信息
@@ -122,7 +122,7 @@ void BSP_UART_Init(const ConfItem* dict)
 }
 
 //初始化uart信息
-void BSP_UART_InitInfo(UARTInfo* info, const ConfItem* dict)
+void BSP_UART_InitInfo(UARTInfo* info, ConfItem* dict)
 {
 	uint8_t number = Conf_GetValue(dict, "number", uint8_t, 0);
 	info->number = number;

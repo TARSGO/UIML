@@ -12,14 +12,14 @@ PID::PID()
 }
 
 // 以配置项构造
-PID::PID(const ConfItem* conf)
+PID::PID(ConfItem* conf)
 {
     // 调用初始化函数
     Init(conf);
 }
 
 // 初始化PID参数
-void PID::Init(const ConfItem* conf)
+void PID::Init(ConfItem* conf)
 {
     kp = Conf_GetValue(conf, "p", float, 0);
     ki = Conf_GetValue(conf, "i", float, 0);
@@ -104,13 +104,13 @@ void PID::Clear()
 }
 
 // 以配置项构造
-CascadePID::CascadePID(const ConfItem* conf)
+CascadePID::CascadePID(ConfItem* conf)
 {
     Init(conf);
 }
 
 // 用配置项初始化内外两环。默认内环配置键名"inner"，外环键名"outer"。
-void CascadePID::Init(const ConfItem* conf)
+void CascadePID::Init(ConfItem* conf)
 {
     inner.Init(Conf_GetNode(conf, "inner"));
     outer.Init(Conf_GetNode(conf, "outer"));

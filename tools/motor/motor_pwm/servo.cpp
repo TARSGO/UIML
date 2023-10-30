@@ -2,7 +2,7 @@
 #include "motor.h"
 #include "config.h"
 
-void Servo::Init(const ConfItem* dict)
+void Servo::Init(ConfItem* dict)
 {
 	//初始化电机绑定TIM信息
 	m_timInfo.timX = Conf_GetValue(dict,"tim-x",uint8_t,0);

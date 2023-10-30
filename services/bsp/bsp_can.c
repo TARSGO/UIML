@@ -32,9 +32,9 @@ typedef struct {
 CANService canService = {0};
 //函数声明
 void BSP_CAN_Init(ConfItem* dict);
-void BSP_CAN_InitInfo(CANInfo* info, const ConfItem* dict);
+void BSP_CAN_InitInfo(CANInfo* info, ConfItem* dict);
 void BSP_CAN_InitHardware(CANInfo* info);
-void BSP_CAN_InitRepeatBuffer(CANRepeatBuffer* buffer, const ConfItem* dict);
+void BSP_CAN_InitRepeatBuffer(CANRepeatBuffer* buffer, ConfItem* dict);
 bool BSP_CAN_SetBufCallback(const char* name, SoftBusFrame* frame, void* bindData);
 bool BSP_CAN_SendOnceCallback(const char* name, SoftBusFrame* frame, void* bindData);
 void BSP_CAN_TimerCallback(void const *argument);
@@ -129,7 +129,7 @@ void BSP_CAN_Init(ConfItem* dict)
 }
 
 //初始化CAN信息
-void BSP_CAN_InitInfo(CANInfo* info, const ConfItem* dict)
+void BSP_CAN_InitInfo(CANInfo* info, ConfItem* dict)
 {
 	info->number = Conf_GetValue(dict, "number", uint8_t, 0);
 
@@ -172,7 +172,7 @@ void BSP_CAN_InitHardware(CANInfo* info)
 }
 
 //初始化循环发送缓冲区
-void BSP_CAN_InitRepeatBuffer(CANRepeatBuffer* buffer, const ConfItem* dict)
+void BSP_CAN_InitRepeatBuffer(CANRepeatBuffer* buffer, ConfItem* dict)
 {
 	//重复帧绑定can
 	uint8_t canX = Conf_GetValue(dict, "can-x", uint8_t, 0);

@@ -2,7 +2,7 @@
 #include "motor.h"
 #include "byteorder.h"
 
-void M3508::Init(const ConfItem* dict)
+void M3508::Init(ConfItem* dict)
 {
 	// 电机减速比；如果未配置电机减速比参数，则使用原装电机默认减速比
 	m_reductionRatio = Conf_GetValue(dict, "reduction-ratio", float, 19.2f);

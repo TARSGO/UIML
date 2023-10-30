@@ -32,7 +32,7 @@ typedef struct _Gimbal
 	char* settingName;
 } Gimbal;
 
-void Gimbal_Init(Gimbal* gimbal, const ConfItem* dict);
+void Gimbal_Init(Gimbal* gimbal, ConfItem* dict);
 void Gimbal_TotalAngleInit(Gimbal* gimbal);
 void Gimbal_StatAngle(Gimbal* gimbal, float yaw, float pitch, float roll);
 
@@ -79,7 +79,7 @@ void Gimbal_TaskCallback(void const * argument)
 	}
 }
 
-void Gimbal_Init(Gimbal* gimbal, const ConfItem* dict)
+void Gimbal_Init(Gimbal* gimbal, ConfItem* dict)
 {
 	//任务间隔
 	gimbal->taskInterval = Conf_GetValue(dict, "task-interval", uint16_t, 2);
