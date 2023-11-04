@@ -154,22 +154,22 @@ void RC_PublishData(RC *rc)
 	static RC_TypeDef lastData={0};
 
 	if(abs(lastData.ch1) > 5 || abs(lastData.ch2) > 5)
-		Bus_PublishTopic("/rc/right-stick",{{"x",&rc->rcInfo.ch1},{"y",&rc->rcInfo.ch2}}); 
+		Bus_PublishTopic("/rc/right-stick",{{"x",{.U16 = rc->rcInfo.ch1}},{"y",{.U16 = rc->rcInfo.ch2}}}); 
 	
 	if(abs(lastData.ch3) > 5 || abs(lastData.ch4) > 5)
-		Bus_PublishTopic("/rc/left-stick",{{"x",&rc->rcInfo.ch3},{"y",&rc->rcInfo.ch4}});
+		Bus_PublishTopic("/rc/left-stick",{{"x",{.U16 = rc->rcInfo.ch3}},{"y",{.U16 = rc->rcInfo.ch4}}});
 
 	if(lastData.mouse.x != rc->rcInfo.mouse.x || lastData.mouse.y != rc->rcInfo.mouse.y)
-		Bus_PublishTopic("/rc/mouse-move",{{"x",&rc->rcInfo.mouse.x},{"y",&rc->rcInfo.mouse.y}});
+		Bus_PublishTopic("/rc/mouse-move",{{"x",{.U16 = rc->rcInfo.mouse.x}},{"y",{.U16 = rc->rcInfo.mouse.y}}});
 	
 	if(lastData.left != rc->rcInfo.left)
-		Bus_PublishTopic("/rc/switch",{{"left",&rc->rcInfo.left}});
+		Bus_PublishTopic("/rc/switch",{{"left",{.U8 = rc->rcInfo.left}}});
 
 	if(lastData.right != rc->rcInfo.right)
-		Bus_PublishTopic("/rc/switch",{{"right",&rc->rcInfo.right}});
+		Bus_PublishTopic("/rc/switch",{{"right",{.U8 = rc->rcInfo.right}}});
 
 	if(lastData.wheel != rc->rcInfo.wheel)
-		Bus_PublishTopic("/rc/wheel",{{"value",&rc->rcInfo.wheel}});
+		Bus_PublishTopic("/rc/wheel",{{"value",{.U16 = rc->rcInfo.wheel}}});
 	
 	//更新按键状态并发布
 	RC_UpdateKeys(rc);
