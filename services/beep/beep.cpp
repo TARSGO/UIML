@@ -19,6 +19,13 @@ uint16_t BeepFrequencyTable[] = {
     1864, 1975, 2093, 2217, 2349, 2489, 2637, 2793, 2959, 3135, 3322, 3520, 3729, 3951,
 };
 
+static constexpr uint32_t TimChannels[] = {
+    TIM_CHANNEL_1,
+    TIM_CHANNEL_2,
+    TIM_CHANNEL_3,
+    TIM_CHANNEL_4
+};
+
 void Beep_Init(ConfItem* conf);
 
 void Beep_TimerCallback(const void* arg);
@@ -95,7 +102,7 @@ inline void Beep_StopBeep()
     Beep_SetFrequency(0);
 }
 
-extern "C" void Beep_TaskCallback(void* argument)
+extern "C" void Beep_TaskMain(void* argument)
 {
     // Depends_WaitFor(svc_beep, { svc_tim });
     Beep_Init((ConfItem*)argument);
@@ -120,8 +127,11 @@ void Beep_Init(ConfItem* conf)
     // 读取时钟信息
     auto timerNode = Conf_GetNode(conf, "timer");
     auto htim = Conf_GetPeriphHandle(Conf_GetValue(timerNode, "name", const char*, nullptr), TIM_HandleTypeDef);
+    auto channel = Conf_GetValue(timerNode, "channel", uint32_t, 3);
     auto timerClock = Conf_GetValue(timerNode, "clockkhz", int32_t, -1);
     if (!htim || timerClock == -1)
+        return;
+    if (channel < 1 || channel > 4)
         return;
     Beep.htim = htim;
     // 初始化定时器外设
@@ -136,7 +146,7 @@ void Beep_Init(ConfItem* conf)
     Beep_StartTimer();
 
     // 启动TIM输出
-    HAL_TIM_PWM_Start(Beep.htim, TIM_CHANNEL_3);
+    HAL_TIM_PWM_Start(Beep.htim, TimChannels[channel - 1]);
 
     // 注册远程函数
     Bus_RemoteFuncRegister(nullptr, Beep_UrgentCommand, "/beep/urgent");

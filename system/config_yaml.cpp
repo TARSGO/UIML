@@ -212,10 +212,10 @@ can:
 uart:
   uarts:
     0:
-      number: 3
+      name: "uart3"
       max-recv-size: 18
     1:
-      number: 6
+      name: "uart6"
       max-recv-size: 300
 
 spi:

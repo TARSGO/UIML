@@ -1,10 +1,14 @@
 #include "config.h"
 #include "softbus.h"
 #include "cmsis_os.h"
+#include "stm32f407xx.h"
 #include "usart.h"
 #include "strict.h"
 #include "dependency.h"
+#include "staticstr.h"
 
+#include <cstdio>
+#include <ctype.h>
 #include <string.h>
 
 #define UART_IRQ \
@@ -42,7 +46,7 @@ typedef struct {
 UARTService uartService = {0};
 //函数声明
 void BSP_UART_Init(ConfItem* dict);
-void BSP_UART_InitInfo(UARTInfo* info, ConfItem* dict);
+void BSP_UART_InitInfo(ConfItem* dict);
 bool BSP_UART_BlockCallback(const char* name, SoftBusFrame* frame, void* bindData);
 bool BSP_UART_ItCallback(const char* name, SoftBusFrame* frame, void* bindData);
 bool BSP_UART_DMACallback(const char* name, SoftBusFrame* frame, void* bindData);
@@ -55,25 +59,26 @@ void BSP_UART_RecvHanlder_DMA(UARTInfo* uartInfo);
 //uart接收中断回调函数
 void BSP_UART_IRQCallback(uint8_t huartX)
 {
+
 	UARTInfo* uartInfo = &uartService.uartList[huartX - 1];
-	
-	//如果初始化未完成则清除标志位
-	if(!uartService.initFinished)
-	{              
+
+	// 坑：
+	// 当进入调试器断点后，UART本身依然会继续接收数据，此时ISR无法响应，导致数据传不出去，
+	// 会触发ORE错误。我们在ISR里额外加一个检测，此时ISR能正常运行，所以可以直接在检测到ORE后即清除
+	// 清除顺序见手册RM0090，先读SR后读DR即可
+	if (__HAL_UART_GET_FLAG(uartInfo->huart, UART_FLAG_ORE))
+	{
 		(void)uartInfo->huart->Instance->SR; 
 		(void)uartInfo->huart->Instance->DR;
-		return;
 	}
 
 	//判断是否为DMA模式
-	if(!(uartInfo->huart->Instance->CR3 & USART_CR3_DMAR))
-		BSP_UART_RecvHanlder(uartInfo);
-	else	
+	if((uartInfo->huart->Instance->CR3 & USART_CR3_DMAR))
 		BSP_UART_RecvHanlder_DMA(uartInfo);
 }
 
 //uart任务回调函数
-void BSP_UART_TaskCallback(void const * argument)
+extern "C" void BSP_UART_TaskCallback(void const * argument)
 {
 	//进入临界区
 	portENTER_CRITICAL();
@@ -87,32 +92,15 @@ void BSP_UART_TaskCallback(void const * argument)
 
 void BSP_UART_Init(ConfItem* dict)
 {
-	//计算用户配置的uart数量
-	uartService.uartNum = 0;
-	for(uint8_t num = 0; ; num++)
-	{
-		char confName[] = "uarts/_";
-		confName[6] = num + '0';
-		if(Conf_ItemExist(dict, confName))
-		{
-			//uartService.uartNum++;
-			// 序号存在，读取UART外设信息
-			ConfItem* uartDict = Conf_GetNode(dict, confName);
-			uint8_t uartX = Conf_GetValue(uartDict, "number", uint8_t, 0);
+	// 取出uarts节点
+	auto uartsNode = Conf_GetNode(dict, "uarts");
 
-			// 初始化各UART外设信息
-			BSP_UART_InitInfo(&uartService.uartList[uartX - 1], Conf_GetNode(dict, confName));
-		}
-		else
-			break;
+	// 遍历子项初始化所有指定的设备
+	int index = 0;
+	for (auto devNode = uartsNode->Children; devNode != NULL; devNode = devNode->Next)
+	{
+		BSP_UART_InitInfo(devNode);
 	}
-	//初始化各uart信息
-	// for(uint8_t i = 0; i < uartService.uartNum; i++)
-	// {
-	// 	char confName[] = "uarts/_";
-	// 	confName[6] = i + '0';
-	// 	BSP_UART_InitInfo(&uartService.uartList[i], Conf_GetNode(dict, confName));
-	// }
 
 	//注册远程函数
 	Bus_RemoteFuncRegister(NULL, BSP_UART_BlockCallback, "/uart/trans/block");
@@ -122,30 +110,35 @@ void BSP_UART_Init(ConfItem* dict)
 }
 
 //初始化uart信息
-void BSP_UART_InitInfo(UARTInfo* info, ConfItem* dict)
+void BSP_UART_InitInfo(ConfItem* dict)
 {
-	uint8_t number = Conf_GetValue(dict, "number", uint8_t, 0);
-	info->number = number;
-
-	char uartName[] = "uart_";
-	uartName[4] = number + '0';
-	info->huart = Conf_GetPeriphHandle(uartName, UART_HandleTypeDef);
+	auto devName = Conf_GetValue(dict, "name", const char *, 0);
+	int uartX = -1;
+	
+	sscanf(devName, "uart%d", &uartX);
+	if (uartX > UART_TOTAL_NUM || uartX < 1)
+		return;
+	
+	auto info = &uartService.uartList[uartX - 1];
+	info->huart = Conf_GetPeriphHandle(devName, UART_HandleTypeDef);
 	UIML_FATAL_ASSERT((info->huart != NULL), "Missing UART Device");
 
 	info->recvBuffer.maxBufSize = Conf_GetValue(dict, "max-recv-size", uint16_t, 1);
-	char name[] = "/uart_/recv";
-	name[5] = info->number + '0';
-	info->fastHandle = Bus_GetFastTopicHandle(name);
-	//初始化接收缓冲区
+	
+	StaticString<16> broadcastTopic;
+	broadcastTopic << '/' << devName << "/recv";
+	info->fastHandle = Bus_GetFastTopicHandle(broadcastTopic);
+
+	// 初始化接收缓冲区
 	BSP_UART_InitRecvBuffer(info);
-	//开启uart空闲中断
+	// 开启uart空闲中断
 	__HAL_UART_ENABLE_IT(info->huart, UART_IT_IDLE);
 
-	//判断是否为DMA接收
-	if(Conf_ItemExist(dict, "dma"))		//若为DMA接收，进入DMA配置函数
+	// 判断是否为DMA接收
+	if(Conf_ItemExist(dict, "dma"))		// 若为DMA接收，进入DMA配置函数
 		BSP_UART_RecvConf_DMA(info, Conf_GetValue(dict, "dma/double-buffer", bool, 0));
-	else								//若否，则使能RXNE中断
-		__HAL_UART_ENABLE_IT(info->huart, UART_IT_RXNE);
+	else								// 若否，调用HAL库一直接收到空闲中断产生
+		HAL_UARTEx_ReceiveToIdle_IT(info->huart, info->recvBuffer.data, info->recvBuffer.maxBufSize);
 }
 
 //uart DMA接收配置
@@ -172,9 +165,9 @@ void BSP_UART_RecvConf_DMA(UARTInfo* info, bool isDoubleBuffer)
 //初始化接收缓冲区
 void BSP_UART_InitRecvBuffer(UARTInfo* info)
 {
-   	info->recvBuffer.pos=0;
-	info->recvBuffer.data = pvPortMalloc(info->recvBuffer.maxBufSize);
-    memset(info->recvBuffer.data,0,info->recvBuffer.maxBufSize);
+   	info->recvBuffer.pos = 0;
+	info->recvBuffer.data = (uint8_t*)pvPortMalloc(info->recvBuffer.maxBufSize);
+    memset(info->recvBuffer.data, 0, info->recvBuffer.maxBufSize);
 }
 
 //阻塞回调
@@ -245,7 +238,7 @@ void BSP_UART_RecvHanlder(UARTInfo* uartInfo)
 	{
 		__HAL_UART_CLEAR_IDLEFLAG(uartInfo->huart);
 		uint16_t recSize=uartInfo->recvBuffer.pos; //此时pos值为一帧数据的长度
-		Bus_PublishTopicFast(uartInfo->fastHandle, {uartInfo->recvBuffer.data, &recSize}); //空闲中断为一帧，发送一帧数据
+		Bus_PublishTopicFast(uartInfo->fastHandle, {{uartInfo->recvBuffer.data}, {&recSize}}); //空闲中断为一帧，发送一帧数据
 		uartInfo->recvBuffer.pos = 0;
 	}
 }
@@ -275,29 +268,51 @@ void BSP_UART_RecvHanlder_DMA(UARTInfo* uartInfo)
 		if (uartInfo->huart->hdmarx->Instance->CR & DMA_SxCR_CT)
 		{
 			//广播接收到的数据
-			Bus_PublishTopicFast(uartInfo->fastHandle, {uartInfo->recvBuffer.data});
+			Bus_PublishTopicFast(uartInfo->fastHandle, {{uartInfo->recvBuffer.data}});
 		}
 		else
 		{
 			//广播接收到的数据
-			Bus_PublishTopicFast(uartInfo->fastHandle, {uartInfo->recvBuffer.data + uartInfo->recvBuffer.maxBufSize / 2});
+			Bus_PublishTopicFast(uartInfo->fastHandle, {{uartInfo->recvBuffer.data + uartInfo->recvBuffer.maxBufSize / 2}});
 		}
 	}
 	else
 	{
 		//广播接收到的数据
-		Bus_PublishTopicFast(uartInfo->fastHandle, {uartInfo->recvBuffer.data});
+		Bus_PublishTopicFast(uartInfo->fastHandle, {{uartInfo->recvBuffer.data}});
 		//使能DMA
 		__HAL_DMA_ENABLE(uartInfo->huart->hdmarx);
 	}
 }
 
+// ReceiveToIdle函数的完成回调
+extern "C" void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+	// 查找对应的uartInfo
+	for (int i = 0; i < UART_TOTAL_NUM; i++) {
+		auto uartInfo = &uartService.uartList[i];
+		if (uartInfo->huart == huart) {
+			Bus_PublishTopicFast(uartInfo->fastHandle, {{uartInfo->recvBuffer.data}, {&Size}});
+
+			// 重新开始接收
+			HAL_UARTEx_ReceiveToIdle_IT(uartInfo->huart,
+										uartInfo->recvBuffer.data,
+										uartInfo->recvBuffer.maxBufSize);
+
+			return;
+		}
+	}
+
+}
+
 //生成中断服务函数
 #define IRQ_FUN(irq, number) \
-void irq(void) \
+extern "C" void irq(void) \
 { \
+     \
 	BSP_UART_IRQCallback(number); \
 	HAL_UART_IRQHandler(uartService.uartList[number-1].huart); \
+	/*static int x=0;HAL_GPIO_WritePin(GPIOH,GPIO_PIN_10,(x++ / 256 % 2) ? GPIO_PIN_SET : GPIO_PIN_RESET);*/ \
 }
 
 UART_IRQ

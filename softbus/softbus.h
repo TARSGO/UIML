@@ -58,6 +58,7 @@ typedef bool (*SoftBusRemoteFunction)(const char* name, SoftBusFrame* frame, voi
 
 // 定义函数使用的便利宏
 #define BUS_REMOTEFUNC(func_name) bool func_name(const char* name, SoftBusFrame* frame, void* bindData)
+#define BUS_TOPICENDPOINT(func_name) void func_name(const char* name, SoftBusFrame* frame, void* bindData)
 
 //操作函数声明(不直接调用，应使用下方define定义的接口)
 int8_t _Bus_SubscribeTopics(void* bindData, SoftBusBroadcastReceiver callback, uint16_t namesNum, const char* const * names);
