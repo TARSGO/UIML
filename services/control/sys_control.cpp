@@ -74,7 +74,7 @@ void Sys_InitReceiver()
                                                         "/rc/wheel"});
 }
 
-void SYS_CTRL_TaskCallback(void const * argument)
+extern "C" void SYS_CTRL_TaskCallback(void const * argument)
 {
     //进入临界区
     portENTER_CRITICAL();
