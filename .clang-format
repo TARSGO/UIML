@@ -1,0 +1,10 @@
+﻿---
+AllowAllArgumentsOnNextLine: false
+BasedOnStyle: Microsoft
+BinPackArguments: 'false'
+BinPackParameters: 'false'
+ColumnLimit: 100
+NamespaceIndentation: All
+PenaltyBreakBeforeFirstCallParameter: 1000
+
+...
