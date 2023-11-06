@@ -78,7 +78,7 @@ void _Depends_WaitFor(Module waitingModule, Module* modules, size_t count)
 
     // 把mask和依赖位图单元做AND运算
     for (size_t i = 0; i < DEPENDENCY_BITMAP_UNIT_SIZE; i++)
-        DependencyBitmap[waitingModule * DEPENDENCY_BITMAP_UNIT_SIZE + i] |= mask[i];
+        DependencyBitmap[waitingModule * DEPENDENCY_BITMAP_UNIT_SIZE + i] &= mask[i];
 
     // 为此任务启用依赖初始化完毕的通知
     Depends_EnableNotificationForService(waitingModule);
