@@ -26,8 +26,8 @@ chassis:
     max-vx: 2000.0 # mm/s
     max-vy: 2000.0
     max-vw: 180.0 # deg/s
-    x-acc: 1000.0
-    y-acc: 1000.0
+    x-acc: 3000.0
+    y-acc: 3000.0
 
   motor-fl: # 左前
     type: "M3508"
@@ -37,7 +37,7 @@ chassis:
       p: 10.0
       i: 1.0
       d: 0.0
-      max-i: 10000.0
+      max-i: 15000.0
       max-out: 20000.0
 
   motor-fr: # 右前
@@ -48,7 +48,7 @@ chassis:
       p: 10.0
       i: 1.0
       d: 0.0
-      max-i: 10000.0
+      max-i: 15000.0
       max-out: 20000.0
 
   motor-bl: # 左后
@@ -59,7 +59,7 @@ chassis:
       p: 10.0
       i: 1.0
       d: 0.0
-      max-i: 10000.0
+      max-i: 15000.0
       max-out: 20000.0
 
   motor-br: # 右后
@@ -70,7 +70,7 @@ chassis:
       p: 10.0
       i: 1.0
       d: 0.0
-      max-i: 10000.0
+      max-i: 15000.0
       max-out: 20000.0
 
 gimbal:
@@ -161,6 +161,7 @@ shooter:
 rc:
   type: "DT7"
   uart-x: 3
+  stick-deadzone: 5
 
 judge:
   uart-x: 6
