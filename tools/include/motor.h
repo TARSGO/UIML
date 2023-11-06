@@ -107,8 +107,10 @@ protected:
 	// （CAN回调时接收的）电机参数
 	int16_t m_motorAngle, m_motorSpeed, m_motorTorque; 
 	uint8_t m_motorTemperature;
+	// （CAN回调时计算的）电机转速RPM
+	float m_motorReducedRpm;
 
-	float m_target; // 目标值（视模式可以为速度、角度（单位：度）或扭矩）
+	float m_target; // 目标值（视模式可以为速度(RPM)、角度（单位：度）或扭矩）
 	float m_reductionRatio; // 减速比
 
 	uint16_t m_lastAngle; // 上一计算帧的角度（编码器值）

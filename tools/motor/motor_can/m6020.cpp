@@ -5,7 +5,7 @@
 void M6020::Init(ConfItem* dict)
 {
 	// 电机减速比；如果未配置电机减速比参数，则使用原装电机默认减速比
-	m_reductionRatio = Conf_GetValue(dict, "reduction-ratio", float, 19.2f);
+	m_reductionRatio = Conf_GetValue(dict, "reduction-ratio", float, 1.0f);
 
 	// 初始化电机绑定CAN信息
 	uint16_t id = Conf_GetValue(dict, "id", uint16_t, 0);
@@ -66,4 +66,6 @@ void M6020::CanRxUpdate(uint8_t* rxData)
 	// 将反馈报文数据读入类成员
 	m_motorAngle = SwapByteorder16Bit(M6020Feedback->Angle);
 	m_motorSpeed = SwapByteorder16Bit(M6020Feedback->Speed);
+
+	m_motorReducedRpm = m_motorSpeed / m_reductionRatio;
 }

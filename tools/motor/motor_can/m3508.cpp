@@ -62,4 +62,7 @@ void M3508::CanRxUpdate(uint8_t* rxData)
 	m_motorSpeed = SwapByteorder16Bit(C620Feedback->Speed);
 	m_motorTorque = SwapByteorder16Bit(C620Feedback->Current);
 	m_motorTemperature = C620Feedback->Temperature;
+
+
+	m_motorReducedRpm /= m_motorSpeed / m_reductionRatio;
 }

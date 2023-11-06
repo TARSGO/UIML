@@ -60,5 +60,7 @@ void M2006::CanRxUpdate(uint8_t* rxData)
 	m_motorAngle = SwapByteorder16Bit(C610Feedback->Angle);
 	m_motorSpeed = SwapByteorder16Bit(C610Feedback->Speed);
     m_motorTorque = SwapByteorder16Bit(C610Feedback->Current);
+
+	m_motorReducedRpm = m_motorSpeed / m_reductionRatio;
 }
 
