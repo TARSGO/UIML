@@ -22,6 +22,12 @@ public:
 	
 	size_t size() const { return std::strlen(m_store); }
 	void clear() { m_store[0] = '\0'; }
+
+	// Assign string
+	StaticString<_strlength>& operator=(const char * str) {
+		strncpy(m_store, str, _strlength);
+		m_store[_strlength - 1] = '\0';
+	}
 	
 	// Appending string
 	friend StaticString<_strlength>& operator<<(StaticString<_strlength>& self, const char * extra) {
