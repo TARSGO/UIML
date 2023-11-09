@@ -1,11 +1,11 @@
 
 #include "../system/yamlparser.h"
 #include <cmath>
-#include <iostream>
 #include <functional>
+#include <iostream>
 
-constexpr const char* yaml_simple = 
-R"(
+constexpr const char *yaml_simple =
+    R"(
 sys:
   rotate-pid: # 底盘跟随PID
     p: 1.5
@@ -243,38 +243,57 @@ testcase:
   #
 )";
 
-template <typename T> bool CompareYamlValue(const UimlYamlNode* node, T value) {
+template <typename T> bool CompareYamlValue(const UimlYamlNode *node, T value)
+{
     return !memcmp(&(node->I32), &value, sizeof(T));
 }
-template <> bool CompareYamlValue(const UimlYamlNode* node, const char* value) {
+template <> bool CompareYamlValue(const UimlYamlNode *node, const char *value)
+{
     return !strcmp(node->Str, value);
 }
-template <> bool CompareYamlValue(const UimlYamlNode* node, float value) {
+template <> bool CompareYamlValue(const UimlYamlNode *node, float value)
+{
     return (std::abs(node->F32 - value) <= 1e-6);
 }
-template <> bool CompareYamlValue(const UimlYamlNode* node, double value) {
+template <> bool CompareYamlValue(const UimlYamlNode *node, double value)
+{
     return (std::abs(node->F32 - value) <= 1e-6);
 }
 
-template <typename T> void AssertYamlValue(const UimlYamlNode* root, const char* path, T value) {
+template <typename T> void AssertYamlValue(const UimlYamlNode *root, const char *path, T value)
+{
     auto node = UimlYamlGetValueByPath(root, path);
-    if (node == NULL) {
+    if (node == NULL)
+    {
         std::cerr << "FAIL: Requested value of \"" << path << "\" but the item does not exist!\n";
         return;
     }
-    if (!CompareYamlValue(node, value)) {
-        std::cerr << "FAIL: Value of \"" << path << "\" expected: " << value << ", got: " << *reinterpret_cast<const T*>(&(node->I32)) << '\n';
+    if (!CompareYamlValue(node, value))
+    {
+        std::cerr << "FAIL: Value of \"" << path << "\" expected: " << value
+                  << ", got: " << *reinterpret_cast<const T *>(&(node->I32)) << '\n';
     }
 }
 
-void TestYamlParser() {
+template <typename T> void AssertYamlValue(UimlYamlNodeObject &&obj, T given)
+{
+    if (!CompareYamlValue(obj, given))
+    {
+        std::cerr << "FAIL: Value expected: " << given << ", got: " << obj.get<T>(given) << '\n';
+    }
+}
+
+void TestYamlParser()
+{
     std::cerr << __FUNCTION__ << std::endl;
-    UimlYamlNode* root;
+    UimlYamlNode *root;
 
     UimlYamlParse(yaml_simple, &root);
     auto pChassis = UimlYamlGetValue(root->Children, "chassis");
     auto pInfo = UimlYamlGetValue(pChassis->Children, "info");
     auto pOffsetX = UimlYamlGetValue(pInfo->Children, "wheel-radius");
+
+    UimlYamlNodeObject Conf(root);
 
     AssertYamlValue(root, "/chassis/info/wheel-radius", 76.0f);
     AssertYamlValue(root, "/testcase/minus/int", -65537);
@@ -284,10 +303,18 @@ void TestYamlParser() {
     AssertYamlValue(root, "/testcase/string/hello", "world");
     AssertYamlValue(root, "/spi/spis/0/cs/0/name", "gyro");
 
+    AssertYamlValue(Conf["chassis"]["info"]["wheel-radius"], 76.0f);
+    AssertYamlValue(Conf["testcase"]["minus"]["int"], -65537);
+    AssertYamlValue(Conf["testcase"]["minus"]["float"], -123.456f);
+    AssertYamlValue(Conf["testcase"]["positive"]["int"], 65536);
+    AssertYamlValue(Conf["testcase"]["positive"]["float"], 12.3456f);
+    AssertYamlValue(Conf["testcase"]["string"]["hello"], "world");
+    AssertYamlValue(Conf["spi"]["spis"]["0"]["cs"]["0"]["name"], "gyro");
+
     auto can = UimlYamlGetValue(root->Children, "can");
     AssertYamlValue(can, "cans/0/number", 1);
     AssertYamlValue(root, "spi/spis/0/cs/1/pin", 4);
-    
-    std::cerr << "Comment test: " << UimlYamlGetValueByPath(root, "/chassis/#ThisIsAComment") << std::endl;
 
+    std::cerr << "Comment test: " << UimlYamlGetValueByPath(root, "/chassis/#ThisIsAComment")
+              << std::endl;
 }

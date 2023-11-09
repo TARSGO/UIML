@@ -52,14 +52,14 @@ class UimlYamlNodeObject
 
     UimlYamlNodeObject operator[](const char *childName) const
     {
-        return UimlYamlNodeObject(UimlYamlGetValue(m_node, childName));
+        return UimlYamlNodeObject(UimlYamlGetValue(m_node->Children, childName));
     }
 
     template <typename T> T get(T defval)
     {
-        static_assert(sizeof(T) < sizeof(size_t));
+        static_assert(sizeof(T) <= sizeof(size_t));
 
-        return m_node ? *reinterpret_cast<T *>(&m_node->U32) : defval;
+        return m_node ? *reinterpret_cast<const T *>(&m_node->U32) : defval;
     }
 };
 #endif
