@@ -62,13 +62,17 @@ void M6020::CanRxUpdate(uint8_t *rxData)
     {
         uint16_t Angle;
         uint16_t Speed;
-        uint32_t Reserved;
+        uint16_t Current;
+        uint8_t Temperature;
+        uint8_t Reserved;
     } __attribute((__packed__)) * M6020Feedback;
     M6020Feedback = reinterpret_cast<decltype(M6020Feedback)>(rxData);
 
     // 将反馈报文数据读入类成员
     m_motorAngle = SwapByteorder16Bit(M6020Feedback->Angle);
     m_motorSpeed = SwapByteorder16Bit(M6020Feedback->Speed);
+    m_motorTorque = M6020Feedback->Current;
+    m_motorTemperature = M6020Feedback->Temperature;
 
     m_motorReducedRpm = m_motorSpeed / m_reductionRatio;
     m_feedbackValid = true;
