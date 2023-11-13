@@ -179,6 +179,9 @@ ins:
       d: 0.00
       max-i: 0.15
       max-out: 1
+  orientation: # IMU安装方向
+    fwd: "+x" # 正前向轴
+    up: "+z" # 正上方轴
 
 beep:
   timer:
