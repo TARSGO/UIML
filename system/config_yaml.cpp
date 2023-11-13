@@ -79,6 +79,7 @@ gimbal:
   zero-pitch: 5300
   task-interval: 10
 
+  yaw-zero: 260.9
   yaw-imu-pid:
     p: -90.0
     i: 0.0
