@@ -67,6 +67,7 @@ class Gimbal
         yawAngleAtZero = Conf["yaw-zero"].get<float>(0); // Yaw零点时电机输出的角度值
         motorYaw->WaitUntilFeedbackValid();
         auto yawAngleNow = motorYaw->GetData(CurrentAngle); // 取出反馈绝对角度值
+        relativeAngle = AccumulatedDegTo180(motorYaw->GetData(TotalAngle)); // 初始化底盘相对角
 
         // 当前角度与零点角度之差为（虚拟的）已从零点转过的角度值
         // 如上电时为30度，设置零点为-30度，那么可以视为已从零点逆时针转动60度，故如此设置累计值
