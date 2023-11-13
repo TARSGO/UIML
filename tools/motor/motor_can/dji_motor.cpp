@@ -6,6 +6,7 @@
 
 void DjiCanMotor::Init(ConfItem *dict)
 {
+    U_C(dict);
     // 公共初始化部分
     // 注意：必须设定好减速比与CAN信息
 
@@ -13,9 +14,14 @@ void DjiCanMotor::Init(ConfItem *dict)
     m_mode = MOTOR_TORQUE_MODE;
 
     // 初始化电机pid
-    m_speedPid.Init(Conf_GetNode(dict, "speed-pid"));
-    m_anglePid.Init(Conf_GetNode(dict, "angle-pid"));
+    m_speedPid.Init(Conf["speed-pid"]);
+    m_anglePid.Init(Conf["angle-pid"]);
     m_anglePid.outer.maxOutput *= m_reductionRatio; // 将输出轴速度限幅放大到转子上
+
+    // 读取电机方向，为1正向为-1反向
+    m_direction = Conf["direction"].get<int8_t>(1);
+    if (m_direction != -1 && m_direction != 1)
+        m_direction = 1;
 
     // 订阅can信息
     char name[] = "/can_/recv";
@@ -97,9 +103,17 @@ float DjiCanMotor::GetData(MotorDataType type)
         // 输出轴总转过角度
         return CodeToDeg(m_totalAngle, m_reductionRatio);
 
+    case RawAngle:
+        // 转子当前角度，原始值
+        return m_motorAngle;
+
     case Speed:
         // 输出轴转速（RPM）
         return m_motorSpeed;
+
+    case SpeedReduced:
+        // 减速后的转速（RPM）
+        return m_motorReducedRpm;
 
     default:
         return 0;
