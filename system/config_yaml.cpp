@@ -96,6 +96,9 @@ gimbal:
       max-i: 500.0
       max-out: 20000.0
 
+  pitch-limit:
+    up: 40.0
+    down: 10.0
   pitch-imu-pid:
     p: 63.0
     i: 0.0
