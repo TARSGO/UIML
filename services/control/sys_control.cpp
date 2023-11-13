@@ -128,12 +128,14 @@ void Sys_Chassis_MoveCallback(const char *name, SoftBusFrame *frame, void *bindD
     {
         if (!Bus_CheckMapKeysExist(frame, {"combine-key", "key"}))
             return;
+
         if (!strcmp(Bus_GetMapValue(frame, "combine-key").Str, "none")) // 正常
             speedRatio = 1;
         else if (!strcmp(Bus_GetMapValue(frame, "combine-key").Str, "shift")) // 快速
             speedRatio = 5;
         else if (!strcmp(Bus_GetMapValue(frame, "combine-key").Str, "ctrl")) // 慢速
             speedRatio = 0.2;
+
         switch (Bus_GetMapValue(frame, "key").Str[0])
         {
         case 'A':
@@ -158,6 +160,7 @@ void Sys_Chassis_MoveCallback(const char *name, SoftBusFrame *frame, void *bindD
         sysCtrl.chassisData.vy = Bus_GetMapValue(frame, "y").F32;
     }
 }
+
 void Sys_Chassis_StopCallback(const char *name, SoftBusFrame *frame, void *bindData)
 {
 
@@ -191,10 +194,9 @@ void Sys_Gimbal_RotateCallback(const char *name, SoftBusFrame *frame, void *bind
     {
         if (!Bus_CheckMapKeysExist(frame, {"x", "y"}))
             return;
-        // Yaw：【1 / 660 * 30 = 0.04545】（遥控器满杆量时，期望云台能转到偏移角30度位置）
-        // Pitch：【1 / 660 * 10 = 0.01515】（满杆量时相对转动10度）//FIXME
-        sysCtrl.gimbalData.targetYaw = Bus_GetMapValue(frame, "x").U16 * 0.045;
-        sysCtrl.gimbalData.targetPitch = Bus_GetMapValue(frame, "y").U16 * 0.015;
+
+        sysCtrl.gimbalData.targetYaw = Bus_GetMapValue(frame, "x").F32 * 1.5f;
+        sysCtrl.gimbalData.targetPitch = Bus_GetMapValue(frame, "y").F32 * 1.5f;
     }
     else if (!strcmp(name, "/gimbal/yaw/relative-angle"))
     {

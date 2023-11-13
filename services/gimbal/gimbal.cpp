@@ -1,10 +1,14 @@
-#include "config.h"
-#include "softbus.h"
-#include "pid.h"
-#include "motor.h"
-#include "sys_conf.h"
-#include "dependency.h"
 #include "cmsis_os.h"
+#include "config.h"
+#include "dependency.h"
+#include "extendio.h"
+#include "motor.h"
+#include "pid.h"
+#include "portable.h"
+#include "softbus.h"
+#include "sys_conf.h"
+#include "uimlnumeric.h"
+#include <cmath>
 
 #ifndef PI
 #define PI 3.1415926535f
@@ -12,182 +16,189 @@
 
 typedef struct _Gimbal
 {
-	//yaw、pitch电机
-	BasicMotor* motors[2];
+    // yaw、pitch电机
+    BasicMotor *motors[2];
 
-	uint16_t zeroAngle[2];	//零点
-	float relativeAngle;	//云台偏离角度
-	struct 
-	{
-		// float eulerAngle[3];	//欧拉角
-		float lastEulerAngle[3];
-		float totalEulerAngle[3];
-		PID pid[2];
-	} imu;
-	float angle[2];	// 云台角度
-	uint16_t taskInterval;	
-	// 软总线广播、远程函数name
-	char* yawRelAngleName;	
-	char* imuEulerAngleName;
-	char* settingName;
-} Gimbal;
+    uint16_t taskInterval;
+    // 软总线广播、远程函数name
+    char *yawRelAngleName;
+    char *imuEulerAngleTopic;
+    char *settingName;
+} GimbalLegacy;
 
-void Gimbal_Init(Gimbal* gimbal, ConfItem* dict);
-void Gimbal_TotalAngleInit(Gimbal* gimbal);
-void Gimbal_StatAngle(Gimbal* gimbal, float yaw, float pitch, float roll);
+void Gimbal_Init(GimbalLegacy *gimbal, ConfItem *dict);
+void Gimbal_YawTotalAngleInit(GimbalLegacy *gimbal);
+void Gimbal_ProcessImuAngleData(GimbalLegacy *gimbal, float yaw, float pitch, float roll);
 
-void Gimbal_BroadcastCallback(const char* name, SoftBusFrame* frame, void* bindData);
-bool Gimbal_SettingCallback(const char* name, SoftBusFrame* frame, void* bindData);
-void Gimbal_StopCallback(const char* name, SoftBusFrame* frame, void* bindData);
+void Gimbal_ImuEulerAngleReceiveCallback(const char *name, SoftBusFrame *frame, void *bindData);
+bool Gimbal_CommandedGimbalActionCallback(const char *name, SoftBusFrame *frame, void *bindData);
+void Gimbal_EmergencyStopCallback(const char *name, SoftBusFrame *frame, void *bindData);
 
-static Gimbal* GlobalGimbal;
+static GimbalLegacy *GlobalGimbal;
 
-void Gimbal_TaskCallback(void const * argument)
+class Gimbal
 {
-	Depends_WaitFor(svc_gimbal, {svc_can, svc_ins});
+  public:
+    Gimbal(){};
+    void Init(ConfItem *dict)
+    {
+        U_C(dict);
 
-	//进入临界区
-	portENTER_CRITICAL();
-	Gimbal gimbal={0};
-	Gimbal_Init(&gimbal, (ConfItem*)argument);
-	portEXIT_CRITICAL();
-	osDelay(2000);
-	Gimbal_TotalAngleInit(&gimbal); //计算云台零点
+        // 加载配置项，创建电机与角度外环PID
+        taskInterval = Conf["task-interval"].get<uint8_t>(2);
+        motorYaw = BasicMotor::Create(Conf["motor-yaw"]);
+        motorPitch = BasicMotor::Create(Conf["motor-pitch"]);
+        pidYaw.Init(Conf["yaw-imu-pid"]);
+        pidPitch.Init(Conf["pitch-imu-pid"]);
 
-	//计算好云台零点后，更改电机模式，imu反馈做角度外环电机速度反馈做内环
-	gimbal.motors[0]->SetMode(MOTOR_SPEED_MODE);
-	gimbal.motors[1]->SetMode(MOTOR_SPEED_MODE);
+        auto pitchLimit = Conf["pitch-limit"];
+        pitchUbound = -std::abs(pitchLimit["up"].get(10.0f));
+        pitchLbound = std::abs(pitchLimit["down"].get(10.0f));
 
-	GlobalGimbal = &gimbal;
+        // 创建话题字符串
+        incomingImuEulerAngleTopic =
+            alloc_sprintf(pvPortMalloc, "/%s/euler-angle", Conf["ins-name"].get("ins"));
+        gimbalActionCommandTopic =
+            alloc_sprintf(pvPortMalloc, "/%s/setting", Conf["name"].get("gimbal"));
+        relativeAngleTopic =
+            alloc_sprintf(pvPortMalloc, "/%s/yaw/relative-angle", Conf["name"].get("gimbal"));
 
-	while (1)
-	{
-		//计算角度串级pid
-		gimbal.imu.pid[0].SingleCalc(gimbal.angle[0], gimbal.relativeAngle/*gimbal.imu.totalEulerAngle[0]*/);
-		gimbal.imu.pid[0].SingleCalc(gimbal.angle[1], gimbal.imu.totalEulerAngle[1]);
+        // 等待电机编码器收到反馈后，设定云台电机Yaw轴累积角度起始值
+        yawAngleAtZero = Conf["yaw-zero"].get<float>(0); // Yaw零点时电机输出的角度值
+        motorYaw->WaitUntilFeedbackValid();
+        auto yawAngleNow = motorYaw->GetData(CurrentAngle); // 取出反馈绝对角度值
 
-		gimbal.motors[0]->SetTarget(gimbal.imu.pid[0].output);
-		gimbal.motors[1]->SetTarget(gimbal.imu.pid[1].output);
+        // 当前角度与零点角度之差为（虚拟的）已从零点转过的角度值
+        // 如上电时为30度，设置零点为-30度，那么可以视为已从零点逆时针转动60度，故如此设置累计值
+        motorYaw->SetTotalAngle(AccumulatedDegTo180(yawAngleNow - yawAngleAtZero));
 
-		//解算云台距离零点的角度
-		gimbal.relativeAngle = gimbal.motors[0]->GetData(TotalAngle);
-		int16_t turns = (int32_t)gimbal.relativeAngle / 360; //转数
-		turns = (turns < 0) ? (turns - 1) : turns; //如果是负数多减一圈使偏离角变成正数
-		gimbal.relativeAngle -= turns * 360; //0-360度
-		Bus_PublishTopic(gimbal.yawRelAngleName, {{"angle", {.F32 = gimbal.relativeAngle}}}); // 广播云台偏离角
-		osDelay(gimbal.taskInterval);
-	}
+        // 外环角度PID在Gimbal任务中，内环速度PID在电机内
+        motorYaw->SetMode(MOTOR_SPEED_MODE);
+        motorPitch->SetMode(MOTOR_SPEED_MODE);
+
+        // 初始化其他变量
+        systemTargetYaw = targetPitch = 0.0f;
+        currentYaw = 0.0f;
+        lastImuYaw = currentImuYaw = NAN;
+
+        // 订阅相关事件
+        Bus_SubscribeTopic(this, ImuEulerAngleReceiveCallback, incomingImuEulerAngleTopic);
+        Bus_RemoteFuncRegister(this, GimbalActionCommandCallback, gimbalActionCommandTopic);
+        Bus_SubscribeTopic(this, EmergencyStopCallback, "/system/stop");
+    }
+
+    // 初始化后控制流交接到此函数，不再返回，此函数中开始循环并定时执行云台任务。
+    [[noreturn]] void Exec();
+
+  private:
+    // 私有方法
+    // 任务间隔到期后调用，执行云台解算。
+    void Tick();
+
+    // 回调函数
+    static BUS_TOPICENDPOINT(ImuEulerAngleReceiveCallback); // IMU欧拉角收到数据回调
+    static BUS_REMOTEFUNC(GimbalActionCommandCallback);     // 云台转动指令回调
+    static BUS_TOPICENDPOINT(EmergencyStopCallback);        // 急停事件回调
+
+  private:
+    // 私有成员
+    uint8_t taskInterval; // 任务执行间隔
+
+    BasicMotor *motorYaw, *motorPitch;
+    PID pidYaw, pidPitch;                   // 角度外环（内环复用电机内的）
+    const char *incomingImuEulerAngleTopic, // [订阅] IMU欧拉角来源话题
+        *gimbalActionCommandTopic,          // [订阅] 云台操纵动作话题
+        *relativeAngleTopic;                // [发布] 云台与底盘偏离角话题
+
+    float systemTargetYaw; // 整车的目标 Yaw 角度（云台主动、底盘随动）累积值，单位：度
+    float targetPitch; // 目标 Pitch 角度，物理上不可累积，单位：度
+
+    float pitchUbound, pitchLbound; // Pitch角目标值上下界，钳位目标值使用
+
+    float lastImuYaw;      // 上一次Tick时IMU的Yaw值，用于维护整车朝向
+    float currentImuYaw;   // 当前的IMU的Yaw值
+    float currentImuPitch; // 当前的IMU的Pitch值，直接供给PID使用，不需要累积
+    float currentYaw; // 云台真实朝向Yaw值，Tick产生时计算，累积值，单位：度
+
+    float yawAngleAtZero; // 云台Yaw轴电机在云台与底盘前向方向对齐时，底盘电机的角度值
+    float relativeAngle; // 云台方向与底盘前向角度之差，广播至总线，范围-180~180，单位：度。
+
+} gimbal;
+
+extern "C" void Gimbal_TaskCallback(void const *argument)
+{
+    Depends_WaitFor(svc_gimbal, {svc_can, svc_ins, svc_chassis});
+    gimbal.Init((ConfItem *)argument);
+    Depends_SignalFinished(svc_gimbal);
+
+    gimbal.Exec();
 }
 
-void Gimbal_Init(Gimbal* gimbal, ConfItem* dict)
+void Gimbal::Tick()
 {
-	//任务间隔
-	gimbal->taskInterval = Conf_GetValue(dict, "task-interval", uint16_t, 2);
+    // 在数值有效时，开始更新IMU累积Yaw值
+    if (!std::isnan(lastImuYaw))
+    {
+        currentYaw += BoundCrossDeltaF32(-180.0f, 180.0f, lastImuYaw, currentImuYaw);
+    }
+    lastImuYaw = currentImuYaw;
 
-	//云台零点
-	gimbal->zeroAngle[0] = Conf_GetValue(dict, "zero-yaw", uint16_t, 0);
-	gimbal->zeroAngle[1] = Conf_GetValue(dict, "zero-pitch", uint16_t, 0);
+    pidYaw.SingleCalc(systemTargetYaw, currentYaw);
+    pidPitch.SingleCalc(targetPitch, currentImuPitch);
 
-	//云台电机初始化
-	gimbal->motors[1] = BasicMotor::Create(Conf_GetNode(dict, "motor-pitch"));
-	gimbal->motors[0] = BasicMotor::Create(Conf_GetNode(dict, "motor-yaw"));
+    motorYaw->SetTarget(pidYaw.output);
+    motorPitch->SetTarget(pidPitch.output);
 
-	gimbal->imu.pid[0].Init(Conf_GetNode(dict, "yaw-imu-pid"));
-	gimbal->imu.pid[1].Init(Conf_GetNode(dict, "pitch-imu-pid"));
-
-	//广播、远程函数name重映射
-	auto temp = Conf_GetValue(dict, "name", const char*, nullptr);
-	temp = temp ? temp : "gimbal";
-	uint8_t len = strlen(temp);
-	gimbal->settingName = (char*)pvPortMalloc(len + 9 + 1); //9为"/   /setting"的长度，1为'\0'的长度
-	sprintf(gimbal->settingName, "/%s/setting", temp);
-
-	gimbal->yawRelAngleName = (char*)pvPortMalloc(len + 20 + 1); //20为"/   /yaw/relative-angle"的长度，1为'\0'的长度
-	sprintf(gimbal->yawRelAngleName, "/%s/yaw/relative-angle", temp);
-
-	temp = Conf_GetValue(dict, "ins-name", const char*, NULL);
-	temp = temp ? temp : "ins";
-	len = strlen(temp);
-	gimbal->imuEulerAngleName = (char*)pvPortMalloc(len + 13 + 1); //13为"/   /euler-angle"的长度，1为'\0'的长度
-	sprintf(gimbal->imuEulerAngleName, "/%s/euler-angle", temp);
-
-	//不在这里设置电机模式，因为在未设置好零点前，pid会驱使电机达到编码器的零点或者imu的初始化零点
-
-	//注册广播、远程函数回调函数
-	Bus_SubscribeTopic(gimbal, Gimbal_BroadcastCallback, gimbal->imuEulerAngleName);
-	Bus_RemoteFuncRegister(gimbal, Gimbal_SettingCallback, gimbal->settingName);
-	Bus_SubscribeTopic(gimbal, Gimbal_StopCallback, "/system/stop"); //急停
+    relativeAngle = AccumulatedDegTo180(motorYaw->GetData(TotalAngle));
+    Bus_PublishTopic(relativeAngleTopic, {{"angle", {.F32 = relativeAngle}}});
 }
 
-void Gimbal_BroadcastCallback(const char* name, SoftBusFrame* frame, void* bindData)
+void Gimbal::Exec()
 {
-	Gimbal* gimbal = (Gimbal*)bindData;
-
-	if(!strcmp(name, "/ins/euler-angle"))
-	{
-		if(!Bus_CheckMapKeysExist(frame, {"yaw", "pitch", "roll"}))
-			return;
-		float yaw = Bus_GetMapValue(frame, "yaw").F32;
-		float pitch = Bus_GetMapValue(frame, "pitch").F32;
-		float roll = Bus_GetMapValue(frame, "roll").F32;
-		Gimbal_StatAngle(gimbal, yaw, pitch, roll); //统计云台角度
-	}
-}
-bool Gimbal_SettingCallback(const char* name, SoftBusFrame* frame, void* bindData)
-{
-	Gimbal* gimbal = (Gimbal*)bindData;
-
-	if(Bus_CheckMapKeyExist(frame, "yaw"))
-	{
-		gimbal->angle[0] = Bus_GetMapValue(frame, "yaw").F32;
-	}
-	if(Bus_CheckMapKeyExist(frame, "pitch"))
-	{
-		gimbal->angle[1] = Bus_GetMapValue(frame, "pitch").F32;
-	}
-	return true;
+    while (true)
+    {
+        Tick();
+        osDelay(taskInterval);
+    }
 }
 
-void Gimbal_StopCallback(const char* name, SoftBusFrame* frame, void* bindData) //急停
+BUS_TOPICENDPOINT(Gimbal::ImuEulerAngleReceiveCallback)
 {
-	Gimbal* gimbal = (Gimbal*)bindData;
-	for(uint8_t i = 0; i<2; i++)
-	{
-		gimbal->motors[i]->EmergencyStop();
-	}
+    auto self = (Gimbal *)bindData;
+    if (!Bus_CheckMapKeysExist(frame, {"yaw", "pitch"}))
+        return;
+
+    float yaw = Bus_GetMapValue(frame, "yaw").F32;
+    float pitch = Bus_GetMapValue(frame, "pitch").F32;
+
+    self->currentImuYaw = yaw;
+    self->currentImuPitch = pitch;
 }
 
-void Gimbal_StatAngle(Gimbal* gimbal, float yaw, float pitch, float roll)
+/**
+ * @brief [订阅] SysControl发布的云台动作指令回调。
+ * @note yaw与pitch取值正负均与ROS右手系中旋转方式相同。
+ */
+BUS_REMOTEFUNC(Gimbal::GimbalActionCommandCallback)
 {
-	float eulerAngle[3] = {yaw, pitch, roll};
-	for (uint8_t i = 0; i < 3; i++)
-	{
-		float dAngle;
-		if(eulerAngle[i] - gimbal->imu.lastEulerAngle[i] < -180)
-			dAngle = eulerAngle[i] + (360 - gimbal->imu.lastEulerAngle[i]);
-		else if(eulerAngle[i] - gimbal->imu.lastEulerAngle[i] > 180)
-			dAngle = -gimbal->imu.lastEulerAngle[i] - (360 - eulerAngle[i]);
-		else
-			dAngle = eulerAngle[i] - gimbal->imu.lastEulerAngle[i];
-		//将角度增量加入计数器
-		gimbal->imu.totalEulerAngle[i] += dAngle;
-		//记录角度
-		gimbal->imu.lastEulerAngle[i] = eulerAngle[i];
-	}
+    auto self = (Gimbal *)bindData;
+
+    // 向世界 yaw 目标值增减
+    if (Bus_CheckMapKeyExist(frame, "yaw"))
+    {
+        float dYaw = Bus_GetMapValue(frame, "yaw").F32;
+        self->systemTargetYaw -= dYaw;
+    }
+
+    // pitch 值设置
+    if (Bus_CheckMapKeyExist(frame, "pitch"))
+    {
+        float dPitch = Bus_GetMapValue(frame, "pitch").F32;
+        float newPitch = self->targetPitch - dPitch;
+        self->targetPitch = std::clamp(newPitch, self->pitchUbound, self->pitchLbound);
+    }
 }
 
-void Gimbal_TotalAngleInit(Gimbal* gimbal)
+BUS_TOPICENDPOINT(Gimbal::EmergencyStopCallback)
 {
-	for(uint8_t i = 0; i<2; i++)
-	{
-		float angle = 0;
-		angle = gimbal->motors[i]->GetData(CurrentAngle);
-		angle = angle - (float)gimbal->zeroAngle[i]*360/8191;  //计算距离零点的角度  
-		if(angle < -180)  //将角度转化到-180~180度，这样可以使云台以最近距离旋转至零点
-			angle += 360;
-		else if(angle > 180)
-			angle -= 360;
-		gimbal->imu.totalEulerAngle[i] = angle;
-		gimbal->motors[i]->SetTotalAngle(angle); //设置电机的起始角度
-	}	
 }
