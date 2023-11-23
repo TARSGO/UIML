@@ -3,6 +3,7 @@
 #include "main.h"
 #include "pid.h"
 #include "softbus.h"
+#include "softbus_cppapi.h"
 #include <string.h>
 
 typedef enum
@@ -109,15 +110,15 @@ extern "C" void SYS_CTRL_TaskCallback(void const *argument)
 // 发送广播
 void Sys_Broadcast()
 {
-    Bus_RemoteFuncCall("/chassis/speed",
-                       {{"vx", {.F32 = sysCtrl.chassisData.vx}},
-                        {"vy", {.F32 = sysCtrl.chassisData.vy}},
-                        {"vw", {.F32 = sysCtrl.chassisData.vw}}});
-    Bus_RemoteFuncCall("/chassis/relative-angle",
-                       {{"angle", {.F32 = sysCtrl.gimbalData.relativeAngle}}});
-    Bus_RemoteFuncCall("/gimbal/setting",
-                       {{"yaw", {.F32 = sysCtrl.gimbalData.targetYaw}},
-                        {"pitch", {.F32 = sysCtrl.gimbalData.targetPitch}}});
+    Bus_PublishTopic("/chassis/speed",
+                     {{"vx", {.F32 = sysCtrl.chassisData.vx}},
+                      {"vy", {.F32 = sysCtrl.chassisData.vy}},
+                      {"vw", {.F32 = sysCtrl.chassisData.vw}}});
+    Bus_PublishTopic("/chassis/relative-angle",
+                     {{"angle", {.F32 = sysCtrl.gimbalData.relativeAngle}}});
+    Bus_PublishTopic("/gimbal/setting",
+                     {{"yaw", {.F32 = sysCtrl.gimbalData.targetYaw}},
+                      {"pitch", {.F32 = sysCtrl.gimbalData.targetPitch}}});
 }
 
 // 底盘运动及停止回调函数
