@@ -26,16 +26,6 @@ typedef struct _Gimbal
     char *settingName;
 } GimbalLegacy;
 
-void Gimbal_Init(GimbalLegacy *gimbal, ConfItem *dict);
-void Gimbal_YawTotalAngleInit(GimbalLegacy *gimbal);
-void Gimbal_ProcessImuAngleData(GimbalLegacy *gimbal, float yaw, float pitch, float roll);
-
-void Gimbal_ImuEulerAngleReceiveCallback(const char *name, SoftBusFrame *frame, void *bindData);
-bool Gimbal_CommandedGimbalActionCallback(const char *name, SoftBusFrame *frame, void *bindData);
-void Gimbal_EmergencyStopCallback(const char *name, SoftBusFrame *frame, void *bindData);
-
-static GimbalLegacy *GlobalGimbal;
-
 class Gimbal
 {
   public:
@@ -84,7 +74,7 @@ class Gimbal
 
         // 订阅相关事件
         Bus_SubscribeTopic(this, ImuEulerAngleReceiveCallback, incomingImuEulerAngleTopic);
-        Bus_RemoteFuncRegister(this, GimbalActionCommandCallback, gimbalActionCommandTopic);
+        Bus_SubscribeTopic(this, GimbalActionCommandCallback, gimbalActionCommandTopic);
         Bus_SubscribeTopic(this, EmergencyStopCallback, "/system/stop");
     }
 
@@ -98,7 +88,7 @@ class Gimbal
 
     // 回调函数
     static BUS_TOPICENDPOINT(ImuEulerAngleReceiveCallback); // IMU欧拉角收到数据回调
-    static BUS_REMOTEFUNC(GimbalActionCommandCallback);     // 云台转动指令回调
+    static BUS_TOPICENDPOINT(GimbalActionCommandCallback);  // 云台转动指令回调
     static BUS_TOPICENDPOINT(EmergencyStopCallback);        // 急停事件回调
 
   private:
@@ -180,7 +170,7 @@ BUS_TOPICENDPOINT(Gimbal::ImuEulerAngleReceiveCallback)
  * @brief [订阅] SysControl发布的云台动作指令回调。
  * @note yaw与pitch取值正负均与ROS右手系中旋转方式相同。
  */
-BUS_REMOTEFUNC(Gimbal::GimbalActionCommandCallback)
+BUS_TOPICENDPOINT(Gimbal::GimbalActionCommandCallback)
 {
     auto self = (Gimbal *)bindData;
 
@@ -202,4 +192,8 @@ BUS_REMOTEFUNC(Gimbal::GimbalActionCommandCallback)
 
 BUS_TOPICENDPOINT(Gimbal::EmergencyStopCallback)
 {
+    auto self = (Gimbal *)bindData;
+
+    self->motorPitch->EmergencyStop();
+    self->motorYaw->EmergencyStop();
 }
