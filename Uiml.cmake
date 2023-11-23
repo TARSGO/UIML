@@ -1,5 +1,5 @@
 
-function(uiml_link_to_stm32_target)
+function(target_link_uiml)
     set(options OPTIONAL FAST)
     set(oneValueArgs STRICT_MODE)
     set(multiValueArgs TARGET_NAME CPU_TYPE)
@@ -17,7 +17,7 @@ function(uiml_link_to_stm32_target)
     # Append include directories of the target to UIML
     get_target_property(TARGET_INCL ${ARG_TARGET_NAME} INCLUDE_DIRECTORIES)
     target_include_directories(uiml_static PRIVATE ${TARGET_INCL})
-    target_include_directories(uiml_static PUBLIC  ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../inc/serviceapi)
+    target_include_directories(uiml_static PUBLIC  ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/inc/serviceapi)
 
     # And its compile definitions
     get_target_property(TARGET_CDEFS ${ARG_TARGET_NAME} COMPILE_DEFINITIONS)
