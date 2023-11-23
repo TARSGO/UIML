@@ -4,6 +4,10 @@ BasedOnStyle: Microsoft
 BinPackArguments: "false"
 BinPackParameters: "false"
 ColumnLimit: 100
+IncludeCategories:
+  # <stm32f4xx.h> 需要排在 <arm_math.h> 之前，以正确激活__FPU_PRESENT宏
+  - Regex: '^(<|")stm32'
+    Priority: 0
 IndentExternBlock: NoIndent
 NamespaceIndentation: All
 PenaltyBreakBeforeFirstCallParameter: 1000
