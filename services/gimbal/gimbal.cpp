@@ -14,18 +14,6 @@
 #define PI 3.1415926535f
 #endif
 
-typedef struct _Gimbal
-{
-    // yaw、pitch电机
-    BasicMotor *motors[2];
-
-    uint16_t taskInterval;
-    // 软总线广播、远程函数name
-    char *yawRelAngleName;
-    char *imuEulerAngleTopic;
-    char *settingName;
-} GimbalLegacy;
-
 class Gimbal
 {
   public:
