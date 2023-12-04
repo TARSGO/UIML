@@ -2,6 +2,7 @@
 #include "cmsis_os.h"
 #include "config.h"
 #include "dependency.h"
+#include "extendio.h"
 #include "filter.h"
 #include "gyroscope.h"
 #include "pid.h"
@@ -128,11 +129,8 @@ void INS_Init(INS *ins, ConfItem *dict)
     // ins->filter = Filter_Init(Conf_GetNode(dict, "filter"));
     // ins->tmpPID.Init(Conf_GetNode(dict, "tmp-pid"));
 
-    auto temp = Conf["name"].get("ins");
-    uint8_t len = strlen(temp);
-    ins->eulerAngleName =
-        (char *)pvPortMalloc(len + 13 + 1); // 13为"/   /euler-angle"的长度，1为'\0'的长度
-    sprintf(ins->eulerAngleName, "/%s/euler-angle", temp);
+    auto insName = Conf["name"].get("ins");
+    ins->eulerAngleName = alloc_sprintf(pvPortMalloc, "/%s/euler-angle", insName);
 
     // 读取安装轴
     auto orientationNode = Conf["orientation"];

@@ -1,6 +1,8 @@
 
 #include "byteorder.h"
+#include "extendio.h"
 #include "motor.h"
+#include "portable.h"
 
 void M3508::Init(ConfItem *dict)
 {
@@ -20,10 +22,8 @@ void M3508::Init(ConfItem *dict)
     // 读取电机名称，创建堵转话题
     constexpr const char *stallFormat = "/%s/stall"; // 堵转话题名称格式字符串
 
-    const char *motorName = Conf_GetValue(dict, "name", const char *, nullptr);
-    motorName = motorName ? motorName : "m3508";
-    char *stallName = (char *)MOTOR_MALLOC_PORT(strlen(stallFormat) - 2 + strlen(motorName));
-    sprintf(stallName, stallFormat, motorName);       // 格式化字符串
+    const char *motorName = Conf_GetValue(dict, "name", const char *, "m3508");
+    char *stallName = alloc_sprintf(pvPortMalloc, "/%s/stall", motorName);
     m_stallTopic = Bus_GetFastTopicHandle(stallName); // 创建话题句柄
     MOTOR_FREE_PORT(stallName);                       // 释放内存
 
