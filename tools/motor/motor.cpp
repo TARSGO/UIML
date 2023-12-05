@@ -1,33 +1,26 @@
 
 #include "motor.h"
+#include "private/createfor.h"
 #include <string.h>
 
-#define MOTOR_CREATE_FOR(given, type) \
-    if (strcmp(motorTypeString, (given)) == 0) \
-    { \
-        ret = (type*)MOTOR_MALLOC_PORT(sizeof(type)); \
-        new (ret) type(); /* 用定位new来调用构造函数 */ \
-        ret->Init(conf); \
-        break; \
-    } 
+#define CREATE_FOR_MALLOC MOTOR_MALLOC_PORT
 
-BasicMotor* BasicMotor::Create(ConfItem* conf)
+BasicMotor *BasicMotor::Create(ConfItem *conf)
 {
-    BasicMotor* ret = NULL;
-    auto motorTypeString = Conf_GetValue(conf, "type", const char*, "");
+    BasicMotor *ret = NULL;
+    auto motorTypeString = Conf_GetValue(conf, "type", const char *, "");
 
-    do
-    {
-        MOTOR_CREATE_FOR("M3508", M3508);
-        MOTOR_CREATE_FOR("M2006", M2006);
-        MOTOR_CREATE_FOR("M6020", M6020);
-        // TODO: Servo, DcMotor
-    } while (false);
+    CREATE_FOR_BEGIN();
+    CREATE_FOR(motorTypeString, "M3508", M3508);
+    CREATE_FOR(motorTypeString, "M2006", M2006);
+    CREATE_FOR(motorTypeString, "M6020", M6020);
+    // TODO: Servo, DcMotor
+    CREATE_FOR_END();
 
     // 一个都没创建出来
     if (ret == NULL)
     {
-        ret = (DummyMotor*)MOTOR_MALLOC_PORT(sizeof(DummyMotor));
+        ret = (DummyMotor *)CREATE_FOR_MALLOC(sizeof(DummyMotor));
         new (ret) DummyMotor();
     }
 

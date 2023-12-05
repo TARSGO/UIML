@@ -32,10 +32,7 @@ enum MotorDataType
 class BasicMotor
 {
   public:
-    BasicMotor() : m_mode(MOTOR_STOP_MODE)
-    {
-        m_feedbackValid = false;
-    }
+    BasicMotor() : m_mode(MOTOR_STOP_MODE) { m_feedbackValid = false; }
     virtual void Init(ConfItem *conf) = 0;
     virtual bool SetMode(MotorCtrlMode mode) = 0;
     virtual void EmergencyStop() = 0;
@@ -93,24 +90,12 @@ class DummyMotor : public BasicMotor
   public:
     DummyMotor() : BasicMotor(){};
     virtual void Init(ConfItem *conf) override{};
-    virtual bool SetMode(MotorCtrlMode mode) override
-    {
-        return false;
-    }
+    virtual bool SetMode(MotorCtrlMode mode) override { return false; }
     virtual void EmergencyStop() override{};
 
-    virtual bool SetTarget(float target) override
-    {
-        return false;
-    }
-    virtual bool SetTotalAngle(float angle) override
-    {
-        return false;
-    }
-    virtual float GetData(MotorDataType type) override
-    {
-        return 0.0f;
-    }
+    virtual bool SetTarget(float target) override { return false; }
+    virtual bool SetTotalAngle(float angle) override { return false; }
+    virtual float GetData(MotorDataType type) override { return 0.0f; }
 };
 
 class DjiCanMotor : public CanMotor
@@ -272,23 +257,12 @@ class Servo : public BasicMotor
   public:
     Servo() : BasicMotor(){};
     virtual void Init(ConfItem *conf);
-    virtual bool SetMode(MotorCtrlMode mode)
-    {
-        return false;
-    }
-    virtual void EmergencyStop()
-    {
-    }
+    virtual bool SetMode(MotorCtrlMode mode) { return false; }
+    virtual void EmergencyStop() {}
 
     virtual bool SetTarget(float target);
-    virtual bool SetTotalAngle(float angle)
-    {
-        return false;
-    }
-    virtual float GetData(MotorDataType type)
-    {
-        return 0.0f;
-    }
+    virtual bool SetTotalAngle(float angle) { return false; }
+    virtual float GetData(MotorDataType type) { return 0.0f; }
 
   protected:
     struct TimInfo

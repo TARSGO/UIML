@@ -4,7 +4,7 @@
 #include "dependency.h"
 #include "extendio.h"
 #include "filter.h"
-#include "gyroscope.h"
+#include "imu.h"
 #include "pid.h"
 #include "softbus.h"
 #include "sys_conf.h"
@@ -38,7 +38,7 @@ typedef struct
     uint8_t timX;
     uint8_t channelX;
 
-    Bmi088 gyro; // TODO: 工厂创建
+    BasicImu *gyro;
     Filter *filter;
 
     uint16_t taskInterval; // 任务执行间隔
@@ -87,10 +87,10 @@ extern "C" void INS_TaskCallback(void const *argument)
     /* Infinite loop */
     while (1)
     {
-        ins.gyro.Acquire(); // 采样
-        ins.gyro.GetGyroscopeData(ins.imu.gyro[0], ins.imu.gyro[1], ins.imu.gyro[2]);
-        ins.gyro.GetAccelerometerData(ins.imu.accel[0], ins.imu.accel[1], ins.imu.accel[2]);
-        ins.imu.tmp = ins.gyro.GetTemperature();
+        ins.gyro->Acquire(); // 采样
+        ins.gyro->GetGyroscopeData(ins.imu.gyro[0], ins.imu.gyro[1], ins.imu.gyro[2]);
+        ins.gyro->GetAccelerometerData(ins.imu.accel[0], ins.imu.accel[1], ins.imu.accel[2]);
+        ins.imu.tmp = ins.gyro->GetTemperature();
         INS_Remap(&ins);
 
         for (uint8_t i = 0; i < 3; i++)
@@ -126,6 +126,7 @@ void INS_Init(INS *ins, ConfItem *dict)
 
     ins->taskInterval = Conf["task-interval"].get(10);
 
+    // TODO: 温控
     // ins->filter = Filter_Init(Conf_GetNode(dict, "filter"));
     // ins->tmpPID.Init(Conf_GetNode(dict, "tmp-pid"));
 
@@ -139,11 +140,11 @@ void INS_Init(INS *ins, ConfItem *dict)
     // 根据安装轴推算重映射关系
     INS_Init_RemapRelations(ins, fwdAxis, upAxis);
 
-    ins->gyro.Init(dict);
-    ins->gyro.Acquire(); // 采样
-    ins->gyro.GetGyroscopeData(ins->imu.gyro[0], ins->imu.gyro[1], ins->imu.gyro[2]);
-    ins->gyro.GetAccelerometerData(ins->imu.accel[0], ins->imu.accel[1], ins->imu.accel[2]);
-    ins->imu.tmp = ins->gyro.GetTemperature();
+    ins->gyro = BasicImu::Create(dict); // 创建陀螺仪对象
+    ins->gyro->Acquire();               // 先初始化采样
+    ins->gyro->GetGyroscopeData(ins->imu.gyro[0], ins->imu.gyro[1], ins->imu.gyro[2]);
+    ins->gyro->GetAccelerometerData(ins->imu.accel[0], ins->imu.accel[1], ins->imu.accel[2]);
+    ins->imu.tmp = ins->gyro->GetTemperature();
     INS_Remap(ins);
 
     // 创建定时器进行温度pid控制
@@ -173,7 +174,7 @@ void INS_Remap(INS *ins)
 void INS_TmpPIDTimerCallback(void const *argument)
 {
     INS *ins = (INS *)pvTimerGetTimerID((TimerHandle_t)argument);
-    ins->gyro.TemperatureControlTick();
+    ins->gyro->TemperatureControlTick();
 }
 
 // 推算重映射关系
