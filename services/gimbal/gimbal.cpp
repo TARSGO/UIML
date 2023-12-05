@@ -6,6 +6,7 @@
 #include "pid.h"
 #include "portable.h"
 #include "softbus.h"
+#include "softbus_cppapi.h"
 #include "sys_conf.h"
 #include "uimlnumeric.h"
 #include <cmath>
@@ -33,13 +34,14 @@ class Gimbal
         pitchUbound = -std::abs(pitchLimit["up"].get(10.0f));
         pitchLbound = std::abs(pitchLimit["down"].get(10.0f));
 
+        auto gimbalName = Conf["name"].get("gimbal");
+
         // 创建话题字符串
         incomingImuEulerAngleTopic =
             alloc_sprintf(pvPortMalloc, "/%s/euler-angle", Conf["ins-name"].get("ins"));
-        gimbalActionCommandTopic =
-            alloc_sprintf(pvPortMalloc, "/%s/setting", Conf["name"].get("gimbal"));
-        relativeAngleTopic =
-            alloc_sprintf(pvPortMalloc, "/%s/yaw/relative-angle", Conf["name"].get("gimbal"));
+        gimbalActionCommandTopic = alloc_sprintf(pvPortMalloc, "/%s/setting", gimbalName);
+        relativeAngleTopic = alloc_sprintf(pvPortMalloc, "/%s/yaw/relative-angle", gimbalName);
+        queryGimbalStateFunc = alloc_sprintf(pvPortMalloc, "/%s/query-state", gimbalName);
 
         // 等待电机编码器收到反馈后，设定云台电机Yaw轴累积角度起始值
         yawAngleAtZero = Conf["yaw-zero"].get<float>(0); // Yaw零点时电机输出的角度值
@@ -64,6 +66,7 @@ class Gimbal
         Bus_SubscribeTopic(this, ImuEulerAngleReceiveCallback, incomingImuEulerAngleTopic);
         Bus_SubscribeTopic(this, GimbalActionCommandCallback, gimbalActionCommandTopic);
         Bus_SubscribeTopic(this, EmergencyStopCallback, "/system/stop");
+        Bus_RemoteFuncRegister(this, QueryGimbalStateFuncCallback, queryGimbalStateFunc);
     }
 
     // 初始化后控制流交接到此函数，不再返回，此函数中开始循环并定时执行云台任务。
@@ -78,6 +81,7 @@ class Gimbal
     static BUS_TOPICENDPOINT(ImuEulerAngleReceiveCallback); // IMU欧拉角收到数据回调
     static BUS_TOPICENDPOINT(GimbalActionCommandCallback);  // 云台转动指令回调
     static BUS_TOPICENDPOINT(EmergencyStopCallback);        // 急停事件回调
+    static BUS_REMOTEFUNC(QueryGimbalStateFuncCallback);    // 查询云台角度远程函数
 
   private:
     // 私有成员
@@ -87,7 +91,8 @@ class Gimbal
     PID pidYaw, pidPitch;                   // 角度外环（内环复用电机内的）
     const char *incomingImuEulerAngleTopic, // [订阅] IMU欧拉角来源话题
         *gimbalActionCommandTopic,          // [订阅] 云台操纵动作话题
-        *relativeAngleTopic;                // [发布] 云台与底盘偏离角话题
+        *relativeAngleTopic,                // [发布] 云台与底盘偏离角话题
+        *queryGimbalStateFunc;              // [远程函数] 查询云台角度
 
     float systemTargetYaw; // 整车的目标 Yaw 角度（云台主动、底盘随动）累积值，单位：度
     float targetPitch; // 目标 Pitch 角度，物理上不可累积，单位：度
@@ -184,4 +189,17 @@ BUS_TOPICENDPOINT(Gimbal::EmergencyStopCallback)
 
     self->motorPitch->EmergencyStop();
     self->motorYaw->EmergencyStop();
+}
+
+BUS_REMOTEFUNC(Gimbal::QueryGimbalStateFuncCallback)
+{
+    auto self = (Gimbal *)bindData;
+
+    if (!Bus_CheckMapKeysExist(frame, {"pitch", "yaw"}))
+        return false;
+
+    *((float *)Bus_GetMapValue(frame, "pitch").Ptr) = self->motorPitch->GetData(CurrentAngle);
+    *((float *)Bus_GetMapValue(frame, "yaw").Ptr) = self->motorYaw->GetData(CurrentAngle);
+
+    return true;
 }

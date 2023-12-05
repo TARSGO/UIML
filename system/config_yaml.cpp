@@ -1,12 +1,13 @@
 
 #include "config.h"
 
-extern "C" {
+extern "C"
+{
 // 配置文件YAML字符串内容
-__weak const char* configYaml = R"(
+__weak const char *configYaml = R"(
 sys:
   rotate-pid: # 底盘跟随PID
-    p: 1.5
+    p: 4.0
     i: 0.0
     d: 0.0
     max-i: 100.0
@@ -16,8 +17,8 @@ chassis:
   task-interval: 2
 
   info:
-    wheelbase: 100.0 # 轴距
-    wheeltrack: 100.0 # 轮距
+    wheelbase: 466.0 # 轴距
+    wheeltrack: 461.0 # 轮距
     wheel-radius: 76.0 # 轮子半径
     offset-x: 0.0
     offset-y: 0.0
@@ -74,22 +75,20 @@ chassis:
       max-out: 20000.0
 
 gimbal:
-  # Yaw Pitch机械零点时电机编码值
-  zero-yaw: 4010
-  zero-pitch: 5300
   task-interval: 10
 
   yaw-zero: 260.9
   yaw-imu-pid:
-    p: -90.0
+    p: 90.0
     i: 0.0
     d: 0.0
     max-i: 50.0
     max-out: 1000.0
   motor-yaw:
     type: "M6020"
-    id: 1
+    id: 2
     can-x: 1
+    direction: -1
     speed-pid:
       p: 15.0
       i: 0.0
@@ -108,10 +107,11 @@ gimbal:
     max-out: 20000.0
   motor-pitch:
     type: "M6020"
-    id: 4
+    id: 2
     can-x: 2
+    direction: -1
     speed-pid:
-      p: 15.0
+      p: 20.0
       i: 0.0
       d: 0.0
       max-i: 500.0
@@ -197,8 +197,8 @@ can:
   cans:
     0:
       number: 1
-#    1:
-#      number: 2
+    1:
+      number: 2
   repeat-buffers:
     0:
       can-x: 1
@@ -208,14 +208,14 @@ can:
       can-x: 1
       id: 511
       interval: 2
-#    2:
-#      can-x: 2
-#      id: 512
-#      interval: 2
-#    3:
-#      can-x: 2
-#      id: 511
-#      interval: 2
+    2:
+      can-x: 2
+      id: 512
+      interval: 2
+    3:
+      can-x: 2
+      id: 511
+      interval: 2
 
 uart:
   uarts:
