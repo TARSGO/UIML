@@ -1,40 +1,39 @@
 
 // FIXME: UIML TIM BSP接口不好用，先不用了
 
-#include <cmsis_os.h>
+#include "stm32f4xx_hal.h"
+#include "beepapi.h"
 #include "config.h"
-#include "my_queue.h"
 #include "dependency.h"
+#include "my_queue.h"
 #include "portable.h"
 #include "softbus.h"
-#include "stm32f4xx_hal_tim.h"
 #include "sys_conf.h"
 #include "yamlparser.h"
-#include "beepapi.h"
+#include <cmsis_os.h>
 
 uint16_t BeepFrequencyTable[] = {
-    131, 139, 147, 156, 165, 175, 185, 196, 208, 220, 233, 247, 262, 277, 294, 311,
-    330, 349, 370, 392, 415, 440, 466, 494, 523, 554, 587, 622, 659, 698, 740, 784,
-    831, 880, 932, 988, 1046, 1108, 1174, 1244, 1318, 1396, 1479, 1567, 1661, 1760,
-    1864, 1975, 2093, 2217, 2349, 2489, 2637, 2793, 2959, 3135, 3322, 3520, 3729, 3951,
+    131,  139,  147,  156,  165,  175,  185,  196,  208,  220,  233,  247,  262,  277,  294,
+    311,  330,  349,  370,  392,  415,  440,  466,  494,  523,  554,  587,  622,  659,  698,
+    740,  784,  831,  880,  932,  988,  1046, 1108, 1174, 1244, 1318, 1396, 1479, 1567, 1661,
+    1760, 1864, 1975, 2093, 2217, 2349, 2489, 2637, 2793, 2959, 3135, 3322, 3520, 3729, 3951,
 };
 
-static constexpr uint32_t TimChannels[] = {
-    TIM_CHANNEL_1,
-    TIM_CHANNEL_2,
-    TIM_CHANNEL_3,
-    TIM_CHANNEL_4
-};
+static constexpr uint32_t TimChannels[] = {TIM_CHANNEL_1,
+                                           TIM_CHANNEL_2,
+                                           TIM_CHANNEL_3,
+                                           TIM_CHANNEL_4};
 
-void Beep_Init(ConfItem* conf);
+void Beep_Init(ConfItem *conf);
 
-void Beep_TimerCallback(const void* arg);
+void Beep_TimerCallback(const void *arg);
 
 BUS_REMOTEFUNC(Beep_UrgentCommand);
 BUS_REMOTEFUNC(Beep_NormalCommand);
 BUS_REMOTEFUNC(Beep_ForceCommand);
 
-struct _Beep {
+struct _Beep
+{
     // Queue urgentCmdQueue, normalCmdQueue;
     QueueHandle_t urgentCmdQueue, normalCmdQueue;
     void *urgentCmdQueueBuffer, *normalCmdQueueBuffer;
@@ -51,7 +50,8 @@ struct _Beep {
     uint16_t normalPriorityPitch;
 } Beep;
 
-struct BeepCommand {
+struct BeepCommand
+{
     uint8_t Duration;
     uint8_t Note;
 };
@@ -65,12 +65,12 @@ inline void Beep_StartTimer()
 }
 
 // 命令入队便利函数
-inline bool Beep_InteralEnqueueCommands(const char* cmdLine, QueueHandle_t queue)
+inline bool Beep_InteralEnqueueCommands(const char *cmdLine, QueueHandle_t queue)
 {
     // 传入的命令行为<长度,音高>的两个字节为一组、有不定长个组的数据，如果遇到长度为0的，则认为命令行在此处结束
     for (int i = 0; cmdLine[i] != 0 && uxQueueSpacesAvailable(queue); i += 2)
     {
-        BeepCommand cmd { cmdLine[i], cmdLine[i + 1] };
+        BeepCommand cmd{cmdLine[i], cmdLine[i + 1]};
         xQueueSend(queue, &cmd, 0);
     }
 
@@ -90,28 +90,26 @@ inline void Beep_SetFrequency(uint16_t freq)
 }
 
 // 频率getter（防炒饭）
-inline uint16_t Beep_NoteToFrequency(uint8_t note) {
+inline uint16_t Beep_NoteToFrequency(uint8_t note)
+{
     if (note > BEEP_HIGHEST_PITCH || note < BEEP_LOWEST_PITCH)
         return 0;
     else
         return BeepFrequencyTable[note - BEEP_LOWEST_PITCH];
 }
 
-inline void Beep_StopBeep()
-{
-    Beep_SetFrequency(0);
-}
+inline void Beep_StopBeep() { Beep_SetFrequency(0); }
 
-extern "C" void Beep_TaskMain(void* argument)
+extern "C" void Beep_TaskMain(void *argument)
 {
     // Depends_WaitFor(svc_beep, { svc_tim });
-    Beep_Init((ConfItem*)argument);
+    Beep_Init((ConfItem *)argument);
     // Depends_SignalFinished(svc_beep);
 
     vTaskDelete(NULL);
 }
 
-void Beep_Init(ConfItem* conf)
+void Beep_Init(ConfItem *conf)
 {
     auto queueSize = Conf_GetValue(conf, "queue-size", uint32_t, 8);
 
@@ -126,7 +124,8 @@ void Beep_Init(ConfItem* conf)
 
     // 读取时钟信息
     auto timerNode = Conf_GetNode(conf, "timer");
-    auto htim = Conf_GetPeriphHandle(Conf_GetValue(timerNode, "name", const char*, nullptr), TIM_HandleTypeDef);
+    auto htim = Conf_GetPeriphHandle(Conf_GetValue(timerNode, "name", const char *, nullptr),
+                                     TIM_HandleTypeDef);
     auto channel = Conf_GetValue(timerNode, "channel", uint32_t, 3);
     auto timerClock = Conf_GetValue(timerNode, "clockkhz", int32_t, -1);
     if (!htim || timerClock == -1)
@@ -156,10 +155,10 @@ void Beep_Init(ConfItem* conf)
 
 BUS_REMOTEFUNC(Beep_UrgentCommand)
 {
-    if (!uxQueueSpacesAvailable(Beep.urgentCmdQueue)  || !Bus_CheckMapKeyExist(frame, "cmd"))
+    if (!uxQueueSpacesAvailable(Beep.urgentCmdQueue) || !Bus_CheckMapKeyExist(frame, "cmd"))
         return false;
 
-    const char* cmdLine = Bus_GetMapValue(frame, "cmd").Str;
+    const char *cmdLine = Bus_GetMapValue(frame, "cmd").Str;
 
     // 加入命令队列中
     return Beep_InteralEnqueueCommands(cmdLine, Beep.urgentCmdQueue);
@@ -170,7 +169,7 @@ BUS_REMOTEFUNC(Beep_NormalCommand)
     if (!uxQueueSpacesAvailable(Beep.normalCmdQueue) || !Bus_CheckMapKeyExist(frame, "cmd"))
         return false;
 
-    const char* cmdLine = Bus_GetMapValue(frame, "cmd").Str;
+    const char *cmdLine = Bus_GetMapValue(frame, "cmd").Str;
 
     // 加入命令队列中
     return Beep_InteralEnqueueCommands(cmdLine, Beep.normalCmdQueue);
@@ -182,14 +181,16 @@ BUS_REMOTEFUNC(Beep_ForceCommand)
     return true;
 }
 
-void Beep_TimerCallback(const void* arg)
+void Beep_TimerCallback(const void *arg)
 {
     // 遇到任一队列被排空时置true
     bool checkEndOfNotes = false;
-    
+
     // 记录当前播放音符时长-1，如果为UINT8_MAX则当前没播放音符，跳过
-    if (Beep.normalCmdDueTime != UINT8_MAX) Beep.normalCmdDueTime--;
-    if (Beep.urgentCmdDueTime != UINT8_MAX) Beep.urgentCmdDueTime--;
+    if (Beep.normalCmdDueTime != UINT8_MAX)
+        Beep.normalCmdDueTime--;
+    if (Beep.urgentCmdDueTime != UINT8_MAX)
+        Beep.urgentCmdDueTime--;
 
     // 如果高优先命令做完了，尝试再取一个，如果取完之后没有了，再让低优先级的出声
     if (Beep.urgentCmdDueTime == 0 || Beep.urgentCmdDueTime == UINT8_MAX)
@@ -200,7 +201,9 @@ void Beep_TimerCallback(const void* arg)
             xQueueReceive(Beep.urgentCmdQueue, &cmd, 0);
             Beep.urgentCmdDueTime = cmd.Duration;
             Beep_SetFrequency(Beep_NoteToFrequency(cmd.Note));
-        } else {
+        }
+        else
+        {
             checkEndOfNotes = true;
             Beep.urgentCmdDueTime = UINT8_MAX;
             // 让低优先级响，如果低优先级没有东西（为0）会停下来
@@ -229,8 +232,7 @@ void Beep_TimerCallback(const void* arg)
     }
 
     // 如果队列已空，而且普通优先度的命令已经执行完，暂停定时器
-    if (checkEndOfNotes &&
-        Beep.normalCmdDueTime == UINT8_MAX &&
+    if (checkEndOfNotes && Beep.normalCmdDueTime == UINT8_MAX &&
         !uxQueueMessagesWaiting(Beep.normalCmdQueue) &&
         !uxQueueMessagesWaiting(Beep.urgentCmdQueue))
     {
