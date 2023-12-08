@@ -76,8 +76,10 @@ chassis:
 
 gimbal:
   task-interval: 10
+  disable: 0
 
-  yaw-zero: 260.9
+  yaw-zero: 151.32
+  yaw-direction: -1 # 用法见gimbal.cpp
   yaw-imu-pid:
     p: 90.0
     i: 0.0

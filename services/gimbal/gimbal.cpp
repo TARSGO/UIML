@@ -14,6 +14,32 @@
 #ifndef PI
 #define PI 3.1415926535f
 #endif
+/*
+        云台控制服务
+
+    - 关于云台电机方向与云台偏离角方向的设置
+        云台电机方向：
+        IMU角度数据使用常用的ROS右手系，在+Z轴上看向原点，物体逆时针旋转，旋转角为正，
+        此时假设云台右转偏离中心10度，由于PID的Error = Ref(0) - Fb(-10)，得到Error为正，
+        再乘以正的Kp，角度环的输出为正。在大疆的6020电机上，速度环给出正的电流值时，
+        电机逆时针旋转，在云台电机正装的机器人上，这将导致云台左转，从而达到控制效果；
+        依此可知，在6020电机反装的机器人上，需要将电机配置中的direction属性改为-1，
+        这将使速度环的输出量乘以-1，使电机控制云台左转。
+        总结：
+        云台电机控制电流值为正时，云台左转，则yaw轴电机的direction置1，反之置-1。
+
+        底盘偏离角方向：
+        底盘接收的偏离角范围：左负右正，范围[-180, 180]，单位：度
+        当Yaw轴使用大疆6020电机时，电机逆时针旋转，反馈角为负；
+        如果电机正装，则对应为“云台右转，反馈角减小”，
+        此时云台右转，电机对象统计的累计转动角将减小。这种情况下，累计转动角是“左正右负”的，
+        与底盘类期待的方向不同，需要乘以-1；
+        如果电机反装，则对应为“云台右转，反馈角增大”，这种情况下，累计转动角是“左负右正”的，
+        与底盘类期待的方向相同。
+        总结：
+        假设云台电机 位置反馈值 与 控制电流值 的正负号对应方向的关系相同；
+        云台右转时，电机反馈角度减小，yaw-direction置-1，反之置1。
+*/
 
 class Gimbal
 {
@@ -61,6 +87,15 @@ class Gimbal
         systemTargetYaw = targetPitch = 0.0f;
         currentYaw = 0.0f;
         lastImuYaw = currentImuYaw = NAN;
+        yawDirection = ((Conf["yaw-direction"].get<int32_t>(-1) > 0) ? 1 : -1);
+
+        // 禁用云台模式，用于测试云台Yaw电机零度角在哪里
+        disableMode = Conf["disable"].get<uint32_t>(1) != 0;
+        if (disableMode)
+        {
+            motorYaw->SetMode(MOTOR_STOP_MODE);
+            motorPitch->SetMode(MOTOR_STOP_MODE);
+        }
 
         // 订阅相关事件
         Bus_SubscribeTopic(this, ImuEulerAngleReceiveCallback, incomingImuEulerAngleTopic);
@@ -86,6 +121,9 @@ class Gimbal
   private:
     // 私有成员
     uint8_t taskInterval; // 任务执行间隔
+
+    bool disableMode; // 禁用云台模式（用于调试云台初始角，此情况下会发送偏离角为0度，电机停转）
+    int8_t yawDirection; // 云台偏离角方向，被乘在广播到总线上的偏离角数值上（见文件头详细注释）
 
     BasicMotor *motorYaw, *motorPitch;
     PID pidYaw, pidPitch;                   // 角度外环（内环复用电机内的）
@@ -133,8 +171,11 @@ void Gimbal::Tick()
     motorYaw->SetTarget(pidYaw.output);
     motorPitch->SetTarget(pidPitch.output);
 
-    relativeAngle = AccumulatedDegTo180(motorYaw->GetData(TotalAngle));
-    Bus_PublishTopic(relativeAngleTopic, {{"angle", {.F32 = relativeAngle}}});
+    if (disableMode)
+        relativeAngle = 0.0f;
+    else
+        relativeAngle = AccumulatedDegTo180(motorYaw->GetData(TotalAngle));
+    Bus_PublishTopic(relativeAngleTopic, {{"angle", {.F32 = relativeAngle * yawDirection}}});
 }
 
 void Gimbal::Exec()
