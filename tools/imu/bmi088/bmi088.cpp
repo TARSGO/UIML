@@ -12,6 +12,7 @@ constexpr uint8_t spiReadAddr(uint8_t addr) { return addr | 0x80; }
 #define BMI088_ACCEL_SEN BMI088_ACCEL_6G_SEN;
 #define BMI088_GYRO_SEN BMI088_GYRO_2000_SEN;
 
+// clang-format off
 // 加速度计、陀螺仪软复位命令(只写2个字节目前测出bug，但传3个字节就没问题了，目前没找到原因暂且传3个字节)
 static uint8_t accSoftResetCmd[] = {spiWriteAddr(BMI088_ACC_SOFTRESET),
                                     BMI088_ACC_SOFTRESET_VALUE,
@@ -44,6 +45,7 @@ static uint8_t gyroIOConfCmd[] = {spiWriteAddr(BMI088_GYRO_INT3_INT4_IO_CONF),
                                   BMI088_GYRO_INT3_GPIO_PP | BMI088_GYRO_INT3_GPIO_LOW};
 static uint8_t gyroIOMapCmd[] = {spiWriteAddr(BMI088_GYRO_INT3_INT4_IO_MAP),
                                  BMI088_GYRO_DRDY_IO_INT3};
+// clang-format on
 
 // 加速度计陀螺仪获取数据命令
 static uint8_t accGetDataCmd[8] = {spiReadAddr(BMI088_ACCEL_XOUT_L)};
@@ -52,14 +54,13 @@ static uint8_t tmpGetDataCmd[4] = {spiReadAddr(BMI088_TEMP_M)};
 
 void Bmi088::Init(ConfItem *conf)
 {
-    auto imuConf = Conf_GetNode(conf, "imu");
 
-    m_spiX = Conf_GetValue(imuConf, "spi-x", uint8_t, 0);
-    m_timX = Conf_GetValue(imuConf, "tim-x", uint8_t, 10);
-    m_targetTemp = Conf_GetValue(imuConf, "target-temperature", float, 40);
-    m_channelX = Conf_GetValue(imuConf, "channel-x", uint8_t, 1);
+    m_spiX = Conf_GetValue(conf, "spi-x", uint8_t, 0);
+    m_timX = Conf_GetValue(conf, "tim-x", uint8_t, 10);
+    m_targetTemp = Conf_GetValue(conf, "target-temperature", float, 40);
+    m_channelX = Conf_GetValue(conf, "channel-x", uint8_t, 1);
 
-    m_heatingPid.Init(Conf_GetNode(imuConf, "tmp-pid"));
+    m_heatingPid.Init(Conf_GetNode(conf, "tmp-pid"));
 
     DeviceStartup();
 }
@@ -227,14 +228,15 @@ void Bmi088::DeviceIssueCommandSpi(uint8_t *TxBuffer, size_t TxLength, ChipSelec
 
     memcpy(m_spiTxBuffer, TxBuffer, TxLength);
 
-    Bus_RemoteFuncCall("/spi/block",
-                       {{"spi-x", {.U8 = m_spiX}},
-                        {"tx-data", {.Ptr = &m_spiTxBuffer}},
-                        {"rx-data", {.Ptr = &m_spiRxBuffer}},
-                        {"len", {.U32 = TxLength}}, // 另一边会读取U16，但这里用U32无所谓
-                        {"timeout", {.U32 = 1000}},
-                        {"cs-name", {.Str = csName}},
-                        {"is-block", {.Bool = true}}});
+    Bus_RemoteFuncCall(
+        "/spi/block",
+        {{"spi-x", {.U8 = m_spiX}},
+         {"tx-data", {.Ptr = &m_spiTxBuffer}},
+         {"rx-data", {.Ptr = &m_spiRxBuffer}},
+         {"len", {.U32 = TxLength}}, // 另一边会读取U16，但这里用U32无所谓
+         {"timeout", {.U32 = 1000}},
+         {"cs-name", {.Str = csName}},
+         {"is-block", {.Bool = true}}});
 }
 
 void Bmi088::GetAccelerometerData(float &ax, float &ay, float &az)
@@ -258,8 +260,9 @@ void Bmi088::TemperatureControlTick()
     m_heatingPid.SingleCalc(m_targetTemp, m_temperature);
     m_heatingPid.output = (m_heatingPid.output > 0) ? (m_heatingPid.output) : 0;
 
-    Bus_RemoteFuncCall("/tim/pwm/set-duty",
-                       {{"tim-x", {.U8 = m_timX}},
-                        {"channel-x", {.U8 = m_channelX}},
-                        {"duty", {.F32 = m_heatingPid.output}}});
+    Bus_RemoteFuncCall(
+        "/tim/pwm/set-duty",
+        {{"tim-x", {.U8 = m_timX}},
+         {"channel-x", {.U8 = m_channelX}},
+         {"duty", {.F32 = m_heatingPid.output}}});
 }

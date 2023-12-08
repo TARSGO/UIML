@@ -140,8 +140,8 @@ void INS_Init(INS *ins, ConfItem *dict)
     // 根据安装轴推算重映射关系
     INS_Init_RemapRelations(ins, fwdAxis, upAxis);
 
-    ins->gyro = BasicImu::Create(dict); // 创建陀螺仪对象
-    ins->gyro->Acquire();               // 先初始化采样
+    ins->gyro = BasicImu::Create(Conf["imu"]); // 创建陀螺仪对象
+    ins->gyro->Acquire();                      // 先初始化采样
     ins->gyro->GetGyroscopeData(ins->imu.gyro[0], ins->imu.gyro[1], ins->imu.gyro[2]);
     ins->gyro->GetAccelerometerData(ins->imu.accel[0], ins->imu.accel[1], ins->imu.accel[2]);
     ins->imu.tmp = ins->gyro->GetTemperature();
