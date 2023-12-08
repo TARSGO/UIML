@@ -116,7 +116,7 @@ float DjiCanMotor::GetData(MotorDataType type)
         return m_motorReducedRpm;
 
     default:
-        return 0;
+        return CanMotor::GetData(type);
     }
 }
 

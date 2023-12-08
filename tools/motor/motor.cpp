@@ -35,3 +35,16 @@ bool BasicMotor::SetMode(MotorCtrlMode mode)
     m_mode = mode;
     return true;
 }
+
+float BasicMotor::GetData(MotorDataType type)
+{
+    switch (type)
+    {
+    case Direction:
+        return m_direction;
+        break;
+
+    default:
+        return 0.0f;
+    }
+}

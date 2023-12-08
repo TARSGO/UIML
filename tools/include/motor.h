@@ -27,6 +27,7 @@ enum MotorDataType
     RawAngle,
     Speed,
     SpeedReduced,
+    Direction,
 };
 
 class BasicMotor
@@ -39,7 +40,7 @@ class BasicMotor
 
     virtual bool SetTarget(float target) = 0;
     virtual bool SetTotalAngle(float angle) = 0;
-    virtual float GetData(MotorDataType type) = 0;
+    virtual float GetData(MotorDataType type);
 
     /**
      * @brief 等待直到电机至少获得了一次反馈，内部每至多10ms轮询一次。对于开环控制的电机，
@@ -67,7 +68,9 @@ class BasicMotor
 
   protected:
     MotorCtrlMode m_mode;
+
     bool m_feedbackValid;
+    int8_t m_direction; // 电机转动方向，为1或-1，乘在输出值上
 };
 
 class CanMotor : public BasicMotor
@@ -138,8 +141,6 @@ class DjiCanMotor : public CanMotor
     // （CAN回调时接收的）电机参数
     int16_t m_motorAngle, m_motorSpeed, m_motorTorque;
     uint8_t m_motorTemperature;
-
-    int8_t m_direction; // 电机转动方向，为1或-1，乘在输出值上
 
     // （CAN回调时计算的）电机转速RPM
     float m_motorReducedRpm;
