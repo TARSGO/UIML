@@ -5,7 +5,6 @@
 #include "softbus.h"
 #include "staticstr.h"
 #include "strict.h"
-#include "usart.h"
 
 #include <cstdio>
 #include <ctype.h>
@@ -251,7 +250,6 @@ void BSP_UART_RecvHanlder(UARTInfo *uartInfo)
 }
 
 // DMA模式下接收处理函数
-// FIXME: 广播时全都没有加长度！！！
 void BSP_UART_RecvHanlder_DMA(UARTInfo *uartInfo)
 {
     // 判断是否为IDLE中断
@@ -262,6 +260,8 @@ void BSP_UART_RecvHanlder_DMA(UARTInfo *uartInfo)
 
     // 失能DMA
     __HAL_DMA_DISABLE(uartInfo->huart->hdmarx);
+    // 取出DMA剩余字节数，以备计算接收到字节数用
+    auto dmaCounter = __HAL_DMA_GET_COUNTER(uartInfo->huart->hdmarx);
     // 重新设定数据长度
     __HAL_DMA_SET_COUNTER(uartInfo->huart->hdmarx, uartInfo->recvBuffer.maxBufSize);
 
@@ -276,20 +276,24 @@ void BSP_UART_RecvHanlder_DMA(UARTInfo *uartInfo)
         if (uartInfo->huart->hdmarx->Instance->CR & DMA_SxCR_CT)
         {
             // 广播接收到的数据
-            Bus_PublishTopicFast(uartInfo->fastHandle, {{uartInfo->recvBuffer.data}});
+            Bus_PublishTopicFast(uartInfo->fastHandle,
+                                 {{uartInfo->recvBuffer.data},
+                                  {.U32 = uartInfo->recvBuffer.maxBufSize / 2 - dmaCounter}});
         }
         else
         {
             // 广播接收到的数据
             Bus_PublishTopicFast(uartInfo->fastHandle,
-                                 {{uartInfo->recvBuffer.data +
-                                   uartInfo->recvBuffer.maxBufSize / 2}});
+                                 {{uartInfo->recvBuffer.data + uartInfo->recvBuffer.maxBufSize / 2},
+                                  {.U32 = uartInfo->recvBuffer.maxBufSize / 2 - dmaCounter}});
         }
     }
     else
     {
         // 广播接收到的数据
-        Bus_PublishTopicFast(uartInfo->fastHandle, {{uartInfo->recvBuffer.data}});
+        Bus_PublishTopicFast(uartInfo->fastHandle,
+                             {{uartInfo->recvBuffer.data},
+                              {.U32 = uartInfo->recvBuffer.maxBufSize - dmaCounter}});
         // 使能DMA
         __HAL_DMA_ENABLE(uartInfo->huart->hdmarx);
     }
@@ -321,11 +325,8 @@ extern "C" void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t S
 #define IRQ_FUN(irq, number)                                                                       \
     extern "C" void irq(void)                                                                      \
     {                                                                                              \
-                                                                                                   \
         BSP_UART_IRQCallback(number);                                                              \
         HAL_UART_IRQHandler(uartService.uartList[number - 1].huart);                               \
-        /*static int x=0;HAL_GPIO_WritePin(GPIOH,GPIO_PIN_10,(x++ / 256 % 2) ? GPIO_PIN_SET :      \
-         * GPIO_PIN_RESET);*/                                                                      \
     }
 
 UART_IRQ
