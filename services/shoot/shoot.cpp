@@ -1,199 +1,269 @@
-#include "config.h"
-#include "softbus.h"
-#include "motor.h"
 #include "cmsis_os.h"
+#include "config.h"
+#include "dependency.h"
+#include "extendio.h"
+#include "motor.h"
+#include "portable.h"
+#include "shooterapi.h"
+#include "softbus.h"
+#include "sys_conf.h"
 
-typedef enum
+static constexpr uint32_t SignalTriggerStall = 1;
+
+class Shooter
 {
-	SHOOTER_MODE_IDLE,
-	SHOOTER_MODE_ONCE,
-	SHOOTER_MODE_CONTINUE,
-	SHOOTER_MODE_BLOCK
-}ShooterMode;
+  public:
+    Shooter(){};
 
-typedef struct
+    void Init(ConfItem *conf)
+    {
+        U_C(conf);
+
+        threadId = osThreadGetId();
+        taskInterval = Conf["task-interval"].get<uint16_t>(20); // 任务间隔
+        fricSpeed = Conf["fric-speed"].get(5450.0f);            // 初始弹速
+
+        // 拨弹轮拨出一发弹丸转角
+        triggerAngle = Conf["trigger-angle"].get<float>(1 / 7.0 * 360);
+
+        // 发射机构电机初始化
+        fricMotors[0] = BasicMotor::Create(Conf["fric-motor-left"]);
+        fricMotors[1] = BasicMotor::Create(Conf["fric-motor-right"]);
+        triggerMotor = BasicMotor::Create(Conf["trigger-motor"]);
+
+        // 设置摩擦轮速度模式，拨弹轮角度模式
+        for (uint8_t i = 0; i < 2; i++)
+            fricMotors[i]->SetMode(MOTOR_SPEED_MODE);
+        triggerMotor->SetMode(MOTOR_ANGLE_MODE);
+
+        auto shooterName = Conf["name"].get("shooter");
+        configFuncName = alloc_sprintf(pvPortMalloc, "/%s/config", shooterName);
+        shootFuncName = alloc_sprintf(pvPortMalloc, "/%s/shoot", shooterName);
+        toggleFricMotorFuncName = alloc_sprintf(pvPortMalloc, "/%s/toggle-fric", shooterName);
+
+        auto trigMotorName = Conf["trigger-motor"]["name"].get("trigger-motor");
+        triggerStallName = alloc_sprintf(pvPortMalloc, "/%s/stall", trigMotorName);
+
+        // 注册回调函数
+        Bus_RemoteFuncRegister(this, ConfigFuncCallback, configFuncName);
+        Bus_RemoteFuncRegister(this, ToggleFrictionMotorFuncCallback, toggleFricMotorFuncName);
+        Bus_RemoteFuncRegister(this, ShootFuncCallback, shootFuncName);
+        Bus_SubscribeTopic(this, EmergencyStopCallback, "/system/stop");
+        Bus_SubscribeTopic(this, TriggerMotorStallCallback, triggerStallName);
+    }
+
+    [[noreturn]] void Exec()
+    {
+        while (true)
+        {
+            Tick();
+        }
+    }
+
+  private:
+    inline void Tick();
+    inline void ToggleFrictionMotor(bool enabled);
+
+    static BUS_REMOTEFUNC(ConfigFuncCallback); // [远程函数] 更改发射参数回调
+    static BUS_REMOTEFUNC(ToggleFrictionMotorFuncCallback); // [远程函数] 开关摩擦轮回调
+    static BUS_REMOTEFUNC(ShootFuncCallback);            // [远程函数] 更改发射模式回调
+    static BUS_TOPICENDPOINT(EmergencyStopCallback);     // [订阅] 急停回调
+    static BUS_TOPICENDPOINT(TriggerMotorStallCallback); // [订阅] 氢弹电机卡弹回调
+
+  private:
+    // 线程ID，用于通知卡弹时立即开始反转
+    osThreadId threadId;
+
+    // 目前只是固定2个摩擦轮电机 + 1个拨弹电机，全队步兵发射机构统一所以不需要担心这个
+    BasicMotor *fricMotors[2], *triggerMotor;
+
+    bool fricEnable;           // 摩擦轮是否已开始旋转
+    enum __packed ShooterState // 发射机构当前工作状态
+    {
+        StateIdle,               // 空闲状态不发射弹丸
+        StateShootingSingleshot, // 设为射出单发弹丸
+        StateShootingContinuous, // 设为射出连续弹丸
+        StateRecoveringStall     // 正在从卡弹中反转恢复
+    } state, stateBeforeStall;
+
+    float fricSpeed;                     // 摩擦轮速度
+    float triggerAngle, targetTrigAngle; // 拨弹一次角度及累计角度
+
+    uint16_t bulletInterval; // 连发间隔ms
+    uint16_t taskInterval;
+
+    char *configFuncName;
+    char *shootFuncName;
+    char *toggleFricMotorFuncName;
+    char *triggerStallName;
+} shooter;
+
+void Shooter::Tick()
 {
-	BasicMotor *fricMotors[2],*triggerMotor;
-	bool fricEnable;
-	float fricSpeed; //摩擦轮速度
-	float triggerAngle,targetTrigAngle; //拨弹一次角度及累计角度
-	uint16_t intervalTime; //连发间隔ms
-	uint8_t mode;
-	uint16_t taskInterval;
+    switch (state)
+    {
+    case StateIdle:
+        osDelay(taskInterval);
+        break;
 
-	char* settingName;
-	char* changeModeName;
-	char* triggerStallName;
-}Shooter;
+    case StateShootingSingleshot: { // 单发
+        bool fricMotorGuard = false;
+        if (fricEnable == false) // 若摩擦轮未开启则先开启
+        {
+            fricMotorGuard = true;
+            ToggleFrictionMotor(true);
+            osDelay(200); // 等待摩擦轮转速稳定
+        }
+        targetTrigAngle += triggerAngle;
+        triggerMotor->SetTarget(targetTrigAngle);
+        osDelay(300);       // 等待弹被打出去
+        if (fricMotorGuard) // 如果打之前摩擦轮没开，就关掉
+            ToggleFrictionMotor(false);
+        state = StateIdle;
+        break;
+    }
 
-void Shooter_Init(Shooter* shooter, ConfItem* dict);
-bool Shooter_SettingCallback(const char* name, SoftBusFrame* frame, void* bindData);
-bool Shoot_ChangeModeCallback(const char* name, SoftBusFrame* frame, void* bindData);
-void Shooter_BlockCallback(const char* name, SoftBusFrame* frame, void* bindData);
-void Shoot_StopCallback(const char* name, SoftBusFrame* frame, void* bindData);
+    case StateShootingContinuous: { // 以一定的时间间隔连续发射
+        bool fricMotorGuard = false;
+        if (fricEnable == false) // 若摩擦轮未开启则先开启
+        {
+            fricMotorGuard = true;
+            ToggleFrictionMotor(true);
+            osDelay(200); // 等待摩擦轮转速稳定
+        }
+        targetTrigAngle += triggerAngle; // 增加拨弹电机目标角度
+        triggerMotor->SetTarget(targetTrigAngle);
 
-void Shooter_TaskCallback(void const * argument)
-{
-	portENTER_CRITICAL();
-	float totalAngle; //为解决warning，C语言中标签的下一条语句不能是定义变量的表达式，而case恰好就是标签
-	Shooter shooter={0};
-	Shooter_Init(&shooter, (ConfItem*)argument);
-	portEXIT_CRITICAL();
+        // 等待卡弹信号或等待时间过完，尽快在卡弹时解决
+        osSignalWait(SignalTriggerStall, bulletInterval);
+        break;
+    }
 
-	osDelay(2000);
-	while(1)
-	{
-		switch(shooter.mode)
-		{
-			case SHOOTER_MODE_IDLE:
-				osDelay(shooter.taskInterval);
-				break;
-			case SHOOTER_MODE_BLOCK:
-				totalAngle = shooter.triggerMotor->GetData(TotalAngle); //重置电机角度为当前累计角度
-				shooter.targetTrigAngle = totalAngle - shooter.triggerAngle*0.5f;  //反转
-				shooter.triggerMotor->SetTarget(shooter.targetTrigAngle);
-				osDelay(500);   //等待电机堵转恢复
-				shooter.mode = SHOOTER_MODE_IDLE;
-				break;
-			case SHOOTER_MODE_ONCE:   //单发
-				if(shooter.fricEnable == false)   //若摩擦轮未开启则先开启
-				{
-					Bus_RemoteFuncCall("/shooter/setting", {{"fric-enable",{.Bool = true}}});
-					osDelay(200);     //等待摩擦轮转速稳定
-				}
-				shooter.targetTrigAngle += shooter.triggerAngle; 
-				shooter.triggerMotor->SetTarget(shooter.targetTrigAngle);
-				shooter.mode = SHOOTER_MODE_IDLE;
-				break;
-			case SHOOTER_MODE_CONTINUE:  //以一定的时间间隔连续发射 
-				if(shooter.fricEnable == false)   //若摩擦轮未开启则先开启
-				{
-					Bus_RemoteFuncCall("/shooter/setting",{{"fric-enable",{.Bool = true}}});
-					osDelay(200);   //等待摩擦轮转速稳定
-				}
-				shooter.targetTrigAngle += shooter.triggerAngle;  //增加拨弹电机目标角度
-				shooter.triggerMotor->SetTarget(shooter.targetTrigAngle);
-				osDelay(shooter.intervalTime);  
-				break;
-			default:
-				break;
-		}
-	}	
+    case StateRecoveringStall: {
+        osSignalWait(SignalTriggerStall, 0); // 清理卡弹标志位
+
+        float totalAngle = triggerMotor->GetData(TotalAngle); // 重置电机角度为当前累计角度
+        targetTrigAngle = totalAngle - triggerAngle * 0.5f; // 反转
+        triggerMotor->SetTarget(targetTrigAngle);
+        osDelay(500); // 等待电机堵转恢复
+
+        state = stateBeforeStall;
+        break;
+    }
+    }
 }
 
-void Shooter_Init(Shooter* shooter, ConfItem* dict)
+// 内部开关摩擦轮电机函数
+void Shooter::ToggleFrictionMotor(bool enable)
 {
-	//任务间隔
-	shooter->taskInterval = Conf_GetValue(dict, "task-interval", uint16_t, 20);
-	//初始弹速
-	shooter->fricSpeed = Conf_GetValue(dict,"fric-speed",float,5450);
-	//拨弹轮拨出一发弹丸转角
-	shooter->triggerAngle = Conf_GetValue(dict,"trigger-angle",float,1/7.0*360);
-	//发射机构电机初始化
-	shooter->fricMotors[0] = BasicMotor::Create(Conf_GetNode(dict, "fric-motor-left"));
-	shooter->fricMotors[1] = BasicMotor::Create(Conf_GetNode(dict, "fric-motor-right"));
-	shooter->triggerMotor = BasicMotor::Create(Conf_GetNode(dict, "trigger-motor"));
-	//设置发射机构电机模式
-	for(uint8_t i = 0; i<2; i++)
-	{
-		shooter->fricMotors[i]->SetMode(MOTOR_SPEED_MODE);
-	}
-	shooter->triggerMotor->SetMode(MOTOR_ANGLE_MODE);
+    if (fricEnable == enable)
+        return;
 
-	const char* temp = Conf_GetValue(dict, "name", const char*, NULL);
-	temp = temp ? temp : "shooter";
-	uint8_t len = strlen(temp);
-	shooter->settingName = (char*)pvPortMalloc(len + 9+ 1); //9为"/   /setting"的长度，1为'\0'的长度
-	sprintf(shooter->settingName, "/%s/setting", temp);
+    if (enable)
+    {
+        fricMotors[0]->SetTarget(-fricSpeed);
+        fricMotors[1]->SetTarget(fricSpeed);
+    }
+    else
+    {
+        fricMotors[0]->SetTarget(0);
+        fricMotors[1]->SetTarget(0);
+    }
 
-	shooter->changeModeName = (char*)pvPortMalloc(len + 6+ 1); //6为"/   /mode"的长度，1为'\0'的长度
-	sprintf(shooter->changeModeName, "/%s/mode", temp);
-	
-	temp = Conf_GetValue(dict, "trigger-motor/name", const char*, NULL);
-	temp = temp ? temp : "trigger-motor";
-	len = strlen(temp);
-	shooter->triggerStallName = (char*)pvPortMalloc(len + 7+ 1); //7为"/   /stall"的长度，1为'\0'的长度
-	sprintf(shooter->triggerStallName, "/%s/stall", temp);
-
-	//注册回调函数
-	Bus_RemoteFuncRegister(shooter,Shooter_SettingCallback, shooter->settingName);
-	Bus_RemoteFuncRegister(shooter,Shoot_ChangeModeCallback, shooter->changeModeName);
-	Bus_SubscribeTopic(shooter,Shoot_StopCallback,"/system/stop");
-	Bus_SubscribeTopic(shooter,Shooter_BlockCallback, shooter->triggerStallName);
+    fricEnable = enable;
 }
 
-//射击模式
-bool Shooter_SettingCallback(const char* name, SoftBusFrame* frame, void* bindData)
+// 更改射击参数（摩擦轮目标转速、拨一发弹丸的角度）
+BUS_REMOTEFUNC(Shooter::ConfigFuncCallback)
 {
-	Shooter *shooter = (Shooter*)bindData ;
-	if(Bus_CheckMapKeyExist(frame,"fric-speed"))
-	{
-		shooter->fricSpeed = Bus_GetMapValue(frame,"fric-speed").F32;
-	}
+    U_S(Shooter);
 
-	if(Bus_CheckMapKeyExist(frame,"trigger-angle"))
-	{
-		shooter->triggerAngle = Bus_GetMapValue(frame,"trigger-angle").F32;
-	}
+    if (Bus_CheckMapKeyExist(frame, "fric-speed"))
+        self->fricSpeed = Bus_GetMapValue(frame, "fric-speed").F32;
 
-	if(Bus_CheckMapKeyExist(frame,"fric-enable"))
-	{
-		shooter->fricEnable = Bus_GetMapValue(frame,"fric-enable").Bool;
-		if(shooter->fricEnable == false)
-		{
-			shooter->fricMotors[0]->SetTarget(0);
-			shooter->fricMotors[1]->SetTarget(0);
-		}
-		else
-		{
-			shooter->fricMotors[0]->SetTarget(-shooter->fricSpeed);
-			shooter->fricMotors[1]->SetTarget( shooter->fricSpeed);
-		}
-	}
-	return true;
-}
-bool Shoot_ChangeModeCallback(const char* name, SoftBusFrame* frame, void* bindData)
-{
-	Shooter *shooter = (Shooter*)bindData;
-	if(Bus_CheckMapKeyExist(frame,"mode"))
-	{
-		const char* mode = Bus_GetMapValue(frame,"mode").Str;
-		if(!strcmp(mode, "once") && shooter->mode == SHOOTER_MODE_IDLE)  //空闲时才允许修改模式
-		{
-			shooter->mode = SHOOTER_MODE_ONCE;
-			return true;
-		}
-		else if(!strcmp(mode,"continue") && shooter->mode == SHOOTER_MODE_IDLE)
-		{
-			if(!Bus_CheckMapKeyExist(frame,"interval-time"))
-				return false;
-			shooter->intervalTime = Bus_GetMapValue(frame,"interval-time").U16;
-			shooter->mode = SHOOTER_MODE_CONTINUE;
-			return true;
-		}
-		else if(!strcmp(mode,"idle") && shooter->mode != SHOOTER_MODE_BLOCK)
-		{
-			shooter->mode = SHOOTER_MODE_IDLE;
-			return true;
-		}
-	}
-	return false;
+    if (Bus_CheckMapKeyExist(frame, "trigger-angle"))
+        self->triggerAngle = Bus_GetMapValue(frame, "trigger-angle").F32;
+
+    return true;
 }
 
-//堵转
-void Shooter_BlockCallback(const char* name, SoftBusFrame* frame, void* bindData)
+// 开关摩擦轮
+BUS_REMOTEFUNC(Shooter::ToggleFrictionMotorFuncCallback)
 {
-	Shooter *shooter = (Shooter*)bindData;
-	shooter->mode = SHOOTER_MODE_BLOCK;
-}
-//急停
-void Shoot_StopCallback(const char* name, SoftBusFrame* frame, void* bindData)
-{
-	Shooter *shooter = (Shooter*)bindData;
-	for(uint8_t i = 0; i<2; i++)
-	{
-		shooter->fricMotors[i]->EmergencyStop();
-	}
-	shooter->triggerMotor->EmergencyStop();
+    U_S(Shooter);
+
+    if (Bus_CheckMapKeyExist(frame, "enable"))
+    {
+        bool enable = Bus_GetMapValue(frame, "enable").Bool;
+        self->ToggleFrictionMotor(enable);
+    }
+    return true;
 }
 
+// 射击动作
+BUS_REMOTEFUNC(Shooter::ShootFuncCallback)
+{
+    U_S(Shooter);
+
+    if (!Bus_CheckMapKeyExist(frame, "mode"))
+        return false;
+
+    // 状态转移逻辑见 shooterapi.h
+    auto newMode = (ShooterMode)Bus_GetMapValue(frame, "mode").U32;
+    switch (newMode)
+    {
+    case Idle:
+        if (self->state == StateShootingContinuous)
+        {
+            self->ToggleFrictionMotor(false); // 从连续模式回到空闲时，关掉摩擦轮
+            self->state = StateIdle;
+        }
+
+        break;
+
+    case Singleshot:
+        if (self->state == StateIdle)
+            self->state = StateShootingSingleshot;
+        break;
+
+    case Continuous:
+        self->state = StateShootingContinuous;
+        break;
+
+    default:
+        return false;
+    }
+
+    return true;
+}
+
+// 拨弹电机堵转
+BUS_TOPICENDPOINT(Shooter::TriggerMotorStallCallback)
+{
+    U_S(Shooter);
+
+    self->stateBeforeStall = self->state; // 保留当前状态
+    self->state = StateRecoveringStall;
+    osSignalSet(self->threadId, SignalTriggerStall); // 让主线程立即处理卡弹
+}
+
+// 急停
+BUS_TOPICENDPOINT(Shooter::EmergencyStopCallback)
+{
+    U_S(Shooter);
+
+    for (uint8_t i = 0; i < 2; i++)
+    {
+        self->fricMotors[i]->EmergencyStop();
+    }
+    self->triggerMotor->EmergencyStop();
+}
+
+extern "C" void Shooter_TaskCallback(void const *argument)
+{
+    Depends_WaitFor(svc_shooter, {svc_can});
+    shooter.Init((ConfItem *)argument);
+    Depends_SignalFinished(svc_shooter);
+
+    shooter.Exec();
+}
