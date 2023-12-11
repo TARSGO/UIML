@@ -20,8 +20,6 @@ void M3508::Init(ConfItem *dict)
     DjiCanMotor::Init(dict);
 
     // 读取电机名称，创建堵转话题
-    constexpr const char *stallFormat = "/%s/stall"; // 堵转话题名称格式字符串
-
     const char *motorName = Conf_GetValue(dict, "name", const char *, "m3508");
     char *stallName = alloc_sprintf(pvPortMalloc, "/%s/stall", motorName);
     m_stallTopic = Bus_GetFastTopicHandle(stallName); // 创建话题句柄
@@ -66,6 +64,6 @@ void M3508::CanRxUpdate(uint8_t *rxData)
     m_motorTorque = SwapByteorder16Bit(C620Feedback->Current);
     m_motorTemperature = C620Feedback->Temperature;
 
-    m_motorReducedRpm /= m_motorSpeed / m_reductionRatio;
+    m_motorReducedRpm = m_motorSpeed / m_reductionRatio;
     m_feedbackValid = true;
 }
