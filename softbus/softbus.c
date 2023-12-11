@@ -12,7 +12,7 @@
 #define SOFTBUS_MEMCPY_PORT(dst, src, len) memcpy(dst, src, len)
 #define SOFTBUS_STRLEN_PORT(str) strlen(str)
 
-#define SoftBus_Str2Hash(str) Hasher_UIML32((str), strlen((str)))
+#define SoftBus_Str2Hash(str) Hasher_UIML32((const uint8_t *)(str), strlen((str)))
 
 typedef struct
 {
@@ -51,10 +51,7 @@ bool Bus_EmptyRemoteFunction(const char *name, SoftBusFrame *frame, void *bindDa
 
 Vector hashList = {0};
 // 初始化hash树
-int8_t Bus_Init()
-{
-    return Vector_Init(hashList, HashNode);
-}
+int8_t Bus_Init() { return Vector_Init(hashList, HashNode); }
 
 int8_t Bus_SubscribeTopic(void *bindData, SoftBusBroadcastReceiver callback, const char *name)
 {
@@ -357,9 +354,7 @@ const SoftBusItemX *Bus_GetMapItem(SoftBusFrame *frame, const char *key)
     return NULL;
 }
 
-void Bus_EmptyBroadcastReceiver(const char *name, SoftBusFrame *frame, void *bindData)
-{
-}
+void Bus_EmptyBroadcastReceiver(const char *name, SoftBusFrame *frame, void *bindData) {}
 bool Bus_EmptyRemoteFunction(const char *name, SoftBusFrame *frame, void *bindData)
 {
     return false;
