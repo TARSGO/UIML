@@ -12,14 +12,14 @@ PID::PID()
 }
 
 // 以配置项构造
-PID::PID(ConfItem* conf)
+PID::PID(ConfItem *conf)
 {
     // 调用初始化函数
     Init(conf);
 }
 
 // 初始化PID参数
-void PID::Init(ConfItem* conf)
+void PID::Init(ConfItem *conf)
 {
     kp = Conf_GetValue(conf, "p", float, 0);
     ki = Conf_GetValue(conf, "i", float, 0);
@@ -27,6 +27,10 @@ void PID::Init(ConfItem* conf)
     maxIntegral = Conf_GetValue(conf, "max-i", float, 0);
     maxOutput = Conf_GetValue(conf, "max-out", float, 0);
     deadzone = 0;
+    error = 0;
+    lastError = 0;
+    integral = 0;
+    output = 0;
 }
 
 // 单级PID计算
@@ -34,7 +38,7 @@ float PID::SingleCalc(float reference, float feedback)
 {
     // 更新数据
     lastError = error;
-    if(ABS(reference - feedback) < deadzone) // 若误差在死区内则error直接置0
+    if (ABS(reference - feedback) < deadzone) // 若误差在死区内则error直接置0
         error = 0;
     else
         error = reference - feedback;
@@ -70,7 +74,9 @@ body: 函数的具体逻辑
  [] (int a) ->float { return (a * 10);};
  a * 10可以改成自己所需要的数学模型，然后将lambda表达式整体传入FeedbackCalc函数中，
 */
-float PID::FeedforwardCalc(float reference, float feedback, const std::function<float(float)> feedforward)
+float PID::FeedforwardCalc(float reference,
+                           float feedback,
+                           const std::function<float(float)> feedforward)
 {
     // 更新数据
     lastError = error;
@@ -104,22 +110,19 @@ void PID::Clear()
 }
 
 // 以配置项构造
-CascadePID::CascadePID(ConfItem* conf)
-{
-    Init(conf);
-}
+CascadePID::CascadePID(ConfItem *conf) { Init(conf); }
 
 // 用配置项初始化内外两环。默认内环配置键名"inner"，外环键名"outer"。
-void CascadePID::Init(ConfItem* conf)
+void CascadePID::Init(ConfItem *conf)
 {
     inner.Init(Conf_GetNode(conf, "inner"));
     outer.Init(Conf_GetNode(conf, "outer"));
 }
 
 // 串级pid计算
-float CascadePID::CascadeCalc(float angleRef,float angleFdb,float speedFdb)
+float CascadePID::CascadeCalc(float angleRef, float angleFdb, float speedFdb)
 {
-    outer.SingleCalc(angleRef, angleFdb); // 计算外环(角度环)
+    outer.SingleCalc(angleRef, angleFdb);     // 计算外环(角度环)
     inner.SingleCalc(outer.output, speedFdb); // 计算内环(速度环)
     output = inner.output;
 

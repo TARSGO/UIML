@@ -28,7 +28,10 @@ void DjiCanMotor::Init(ConfItem *dict)
     name[4] = m_canInfo.canX + '0';
     Bus_SubscribeTopic(this, DjiCanMotor::CanRxCallback, name);
 
+    m_target = 0.0f;
     m_stallTime = 0;
+    m_totalAngle = 0;
+    m_motorReducedRpm = 0;
 }
 
 // 切换电机模式
@@ -58,6 +61,7 @@ void DjiCanMotor::EmergencyStop()
 {
     m_target = 0;
     m_mode = MOTOR_STOP_MODE;
+    CanTransmit(0);
 }
 
 // 设置电机期望值
@@ -126,7 +130,7 @@ void DjiCanMotor::CanRxCallback(const char *endpoint, SoftBusFrame *frame, void 
     if (!bindData)
         return;
 
-    auto self = reinterpret_cast<DjiCanMotor *>(bindData);
+    U_S(DjiCanMotor);
 
     // 校验电机ID
     if (self->m_canInfo.rxID != Bus_GetListValue(frame, 0).U16)
@@ -152,9 +156,8 @@ void DjiCanMotor::TimerCallback(const void *argument)
 // 电机急停回调函数
 void DjiCanMotor::EmergencyStopCallback(const char *endpoint, SoftBusFrame *frame, void *bindData)
 {
-    DjiCanMotor *self = reinterpret_cast<DjiCanMotor *>(bindData);
-    self->m_target = 0;
-    self->m_mode = MOTOR_STOP_MODE;
+    U_S(DjiCanMotor);
+    self->EmergencyStop();
 }
 
 // 统计电机累计转过的圈数
