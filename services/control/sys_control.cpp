@@ -2,6 +2,8 @@
 #include "config.h"
 #include "main.h"
 #include "pid.h"
+#include "rcapi.h"
+#include "shooterapi.h"
 #include "softbus.h"
 #include "softbus_cppapi.h"
 #include <string.h>
@@ -45,6 +47,8 @@ void Sys_Chassis_MoveCallback(const char *name, SoftBusFrame *frame, void *bindD
 void Sys_Mode_ChangeCallback(const char *name, SoftBusFrame *frame, void *bindData);
 void Sys_Gimbal_RotateCallback(const char *name, SoftBusFrame *frame, void *bindData);
 void Sys_Shoot_Callback(const char *name, SoftBusFrame *frame, void *bindData);
+BUS_TOPICENDPOINT(Sys_LeftSwitchCallback);
+BUS_TOPICENDPOINT(Sys_RightSwitchCallback);
 void Sys_ErrorHandle(void);
 
 // 初始化控制信息
@@ -67,7 +71,10 @@ void Sys_InitReceiver()
                         Sys_Gimbal_RotateCallback,
                         {"/rc/mouse-move", "/rc/right-stick", "/gimbal/yaw/relative-angle"});
     // 模式切换
-    Bus_SubscribeTopics(NULL, Sys_Mode_ChangeCallback, {"/rc/key/on-click", "/rc/switch"});
+    Bus_SubscribeTopic(NULL, Sys_Mode_ChangeCallback, "/rc/key/on-click");
+    // 拨杆动作
+    Bus_SubscribeTopic(NULL, Sys_LeftSwitchCallback, "/rc/switch");
+    Bus_SubscribeTopic(NULL, Sys_RightSwitchCallback, "/rc/switch");
     // 发射
     Bus_SubscribeTopics(NULL,
                         Sys_Shoot_Callback,
@@ -227,74 +234,87 @@ void Sys_Mode_ChangeCallback(const char *name, SoftBusFrame *frame, void *bindDa
             break;
         }
     }
-    else if (!strcmp(name, "/rc/switch")) // 遥控器控制
+}
+
+// 左拨杆功能
+BUS_TOPICENDPOINT(Sys_LeftSwitchCallback)
+{
+    if (Bus_CheckMapKeyExist(frame, "left"))
     {
-        if (Bus_CheckMapKeyExist(frame, "right") && sysCtrl.rockerCtrl)
+        switch (Bus_GetMapValue(frame, "left").U8)
         {
-            switch (Bus_GetMapValue(frame, "right").U8)
-            {
-            case 1:
-                sysCtrl.mode = SYS_SPIN_MODE; // 小陀螺模式
-                break;
-            case 3:
-                sysCtrl.mode = SYS_FOLLOW_MODE; // 跟随模式
-                break;
-            case 2:
-                sysCtrl.mode = SYS_SEPARATE_MODE; // 分离模式
-                break;
-            }
+        case SwitchUp:
+            sysCtrl.rockerCtrl = true; // 切换至遥控器控制
+            sysCtrl.errFlag = 0;
+            break;
+        case SwitchMiddle:
+            sysCtrl.rockerCtrl = false; // 切换至键鼠控制
+            sysCtrl.errFlag = 0;
+            break;
+        case SwitchDown:
+            sysCtrl.errFlag = 1; // 急停
+            break;
         }
-        if (Bus_CheckMapKeyExist(frame, "left"))
+    }
+}
+
+// 右拨杆功能
+BUS_TOPICENDPOINT(Sys_RightSwitchCallback)
+{
+    if (Bus_CheckMapKeyExist(frame, "right") && sysCtrl.rockerCtrl)
+    {
+        auto switchPos = RcSwitch(Bus_GetMapValue(frame, "right").U8);
+
+        switch (switchPos)
         {
-            switch (Bus_GetMapValue(frame, "left").U8)
-            {
-            case 1:
-                sysCtrl.rockerCtrl = true; // 切换至遥控器控制
-                sysCtrl.errFlag = 0;
-                break;
-            case 3:
-                sysCtrl.rockerCtrl = false; // 切换至键鼠控制
-                sysCtrl.errFlag = 0;
-                break;
-            case 2:
-                sysCtrl.errFlag = 1;
-                break;
-            }
+        case SwitchUp:
+            // 向上为开启摩擦轮，但开启摩擦轮还需要能关闭，需要单独逻辑判断
+            break;
+        case SwitchMiddle:
+            sysCtrl.mode = SYS_FOLLOW_MODE; // 跟随模式
+            break;
+        case SwitchDown:
+            sysCtrl.mode = SYS_SPIN_MODE; // 小陀螺模式
+            break;
         }
+
+        // 向上为开启摩擦轮，向下为关闭摩擦轮
+        Bus_RemoteFuncCall("/shooter/toggle-fric", {{"enable", {.Bool = (switchPos == SwitchUp)}}});
     }
 }
 
 // 发射回调函数
 void Sys_Shoot_Callback(const char *name, SoftBusFrame *frame, void *bindData)
 {
-    if (!strcmp(name, "/rc/key/on-click") && !sysCtrl.rockerCtrl) // 键鼠控制
-    {
-        if (!Bus_CheckMapKeyExist(frame, "left"))
-            return;
-        Bus_RemoteFuncCall("/shooter/mode", {{"mode", {.Str = "once"}}}); // 点射
-    }
-    else if (!strcmp(name, "/rc/key/on-long-press") && !sysCtrl.rockerCtrl)
-    {
-        if (!Bus_CheckMapKeyExist(frame, "left"))
-            return;
-        Bus_RemoteFuncCall("/shooter/mode",
-                           {{"mode", {.Str = "continue"}},
-                            {"interval-time", {.U32 = 100}}}); // 连发
-    }
-    else if (!strcmp(name, "/rc/key/on-up") && !sysCtrl.rockerCtrl)
-    {
-        if (!Bus_CheckMapKeyExist(frame, "left"))
-            return;
-        Bus_RemoteFuncCall("/shooter/mode", {{"mode", {.Str = "idle"}}}); // 连发
-    }
-    else if (!strcmp(name, "/rc/wheel") && sysCtrl.rockerCtrl) // 遥控器控制
+    // if (!strcmp(name, "/rc/key/on-click") && !sysCtrl.rockerCtrl) // 键鼠控制
+    // {
+    //     if (!Bus_CheckMapKeyExist(frame, "left"))
+    //         return;
+    //     Bus_RemoteFuncCall("/shooter/shoot", {{"mode", {.U32 = Singleshot}}}); // 点射
+    // }
+    // else if (!strcmp(name, "/rc/key/on-long-press") && !sysCtrl.rockerCtrl)
+    // {
+    //     if (!Bus_CheckMapKeyExist(frame, "left"))
+    //         return;
+    //     Bus_RemoteFuncCall("/shooter/shoot",
+    //                        {{"mode", {.Str = "continue"}},
+    //                         {"interval-time", {.U32 = 100}}}); // 连发
+    // }
+    // else if (!strcmp(name, "/rc/key/on-up") && !sysCtrl.rockerCtrl)
+    // {
+    //     if (!Bus_CheckMapKeyExist(frame, "left"))
+    //         return;
+    //     Bus_RemoteFuncCall("/shooter/shoot", {{"mode", {.U32 = Idle}}}); // 连发
+    // }
+    // else
+    if (!strcmp(name, "/rc/wheel") && sysCtrl.rockerCtrl) // 遥控器控制
     {
         if (!Bus_CheckMapKeyExist(frame, "value"))
             return;
         int16_t wheel = Bus_GetMapValue(frame, "value").I16;
 
         if (wheel > 600)
-            Bus_RemoteFuncCall("/shooter/mode", {{"mode", {.Str = "once"}}}); // 点射
+            Bus_RemoteFuncCall("/shooter/shoot", {{"mode", {.U32 = Singleshot}}}); // 点射
     }
 }
 
