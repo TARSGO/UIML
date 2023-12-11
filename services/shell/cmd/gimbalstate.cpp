@@ -9,10 +9,11 @@ namespace ShellCmd
     {
         float pitch, yaw;
 
-        Bus_RemoteFuncCall("/gimbal/query-state", {{"pitch", {&pitch}}, {"yaw", {&yaw}}});
+        auto ret =
+            Bus_RemoteFuncCall("/gimbal/query-state", {{"pitch", {&pitch}}, {"yaw", {&yaw}}});
         printf("/gimbal motors:\nPitch %.2f\nYaw %.2f\n", pitch, yaw);
 
-        return 0;
+        return !ret;
     }
 } // namespace ShellCmd
 
