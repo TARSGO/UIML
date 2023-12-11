@@ -4,8 +4,7 @@
 
 #define CREATE_FOR_BEGIN()                                                                         \
     do                                                                                             \
-    {                                                                                              \
-    (void *)0
+    {
 
 #define CREATE_FOR(compare, given, type)                                                           \
     if (strcmp((compare), (given)) == 0)                                                           \
