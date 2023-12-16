@@ -3,7 +3,7 @@
 
 extern "C"
 {
-// 配置文件YAML字符串内容
+// 默认YAML配置文件，请在项目中覆盖符号
 __weak const char *configYaml = R"(
 sys:
   rotate-pid: # 底盘跟随PID

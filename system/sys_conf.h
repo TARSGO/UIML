@@ -10,65 +10,26 @@
 #include "config.h"
 
 /****************** 外设配置 ******************/
-// 可使用Configuration Wizard配置
-
-//<<< Use Configuration Wizard in Context Menu >>>
-//<h>BSP Config
-//<q0>CAN
-//<i>Select to include "can.h"
-//<q1>UART
-//<i>Select to include "usart.h"
-//<q2>EXTI
-//<i>Select to include "gpio.h"
-//<q3>TIM
-//<i>Select to include "tim.h"
-//<q4>SPI
-//<i>Select to include "spi.h"
-#define CONF_CAN_ENABLE 1
-#define CONF_USART_ENABLE 1
-#define CONF_EXTI_ENABLE 1
-#define CONF_TIM_ENABLE 1
-#define CONF_SPI_ENABLE 1
-//</h>
-#if CONF_CAN_ENABLE
+#if UIML_ENABLE_BSP_CAN
 #include "can.h"
 #endif
-#if CONF_USART_ENABLE
+#if UIML_ENABLE_BSP_UART
 #include "usart.h"
 #endif
-#if CONF_EXTI_ENABLE
+#if UIML_ENABLE_BSP_GPIO
 #include "gpio.h"
 #endif
-#if CONF_TIM_ENABLE
+#if UIML_ENABLE_BSP_TIM
 #include "tim.h"
 #endif
-#if CONF_SPI_ENABLE
+#if UIML_ENABLE_BSP_SPI
 #include "spi.h"
 #endif
 // <<< end of configuration section >>>
 
-/****************** 服务列表配置 (X-MACRO) ******************/
+// 服务列表枚举（自动生成于构建目录中）
+#include "uiml_service_list_header.h"
 
-// 每项格式(服务名,服务任务函数,任务优先级,任务栈大小)
-#define SERVICE_LIST                                                                               \
-    SERVICE(can, BSP_CAN_TaskCallback, osPriorityRealtime, 512)                                    \
-    SERVICE(uart, BSP_UART_TaskCallback, osPriorityNormal, 1024)                                   \
-    SERVICE(spi, BSP_SPI_TaskCallback, osPriorityNormal, 512)                                      \
-    SERVICE(tim, BSP_TIM_TaskCallback, osPriorityNormal, 512)                                      \
-    SERVICEX(beep, Beep_TaskMain, osPriorityNormal, 256)                                           \
-    SERVICE(referee, Referee_TaskMain, osPriorityNormal, 512)                                      \
-    SERVICE(ins, INS_TaskCallback, osPriorityNormal, 1024)                                         \
-    SERVICE(gimbal, Gimbal_TaskCallback, osPriorityNormal, 256)                                    \
-    SERVICEX(shooter, Shooter_TaskCallback, osPriorityNormal, 256)                                 \
-    SERVICE(chassis, Chassis_TaskCallback, osPriorityNormal, 1024)                                 \
-    SERVICE(rc, RC_TaskCallback, osPriorityNormal, 1024)                                           \
-    SERVICEX(judge, Judge_TaskCallback, osPriorityNormal, 128)                                     \
-    SERVICE(sys, SYS_CTRL_TaskCallback, osPriorityNormal, 256)                                     \
-    SERVICEX(exti, BSP_EXTI_TaskCallback, osPriorityNormal, 256)                                   \
-    SERVICE(rtt, RTT_TaskCallback, osPriorityLow, 128)                                             \
-    SERVICE(shell, Shell_TaskCallback, osPriorityLow, 512)
-
-// 服务列表枚举
 typedef enum
 {
 #define SERVICE(service, callback, priority, stackSize) svc_##service,
