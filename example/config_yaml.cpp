@@ -1,7 +1,8 @@
 
 #include "config.h"
 
-extern "C" {
+extern "C"
+{
 // 配置文件YAML字符串内容
 const char *configYaml = R"(
 sys:
@@ -78,7 +79,7 @@ gimbal:
   disable: 0
 
   yaw-zero: 151.32
-  yaw-direction: -1 # 用法见gimbal.cpp
+  yaw-direction: 1 # 用法见gimbal.cpp
   yaw-imu-pid:
     p: 90.0
     i: 0.0
@@ -89,7 +90,7 @@ gimbal:
     type: "M6020"
     id: 2
     can-x: 1
-    direction: -1
+    direction: 1
     speed-pid:
       p: 15.0
       i: 0.0
@@ -122,6 +123,8 @@ shooter:
   task-interval: 10
 
   trigger-angle: 45.0 # 拨一发弹丸的角度
+  fric-speed: 200.0 # RPM
+
   trigger-motor:
     type: "M2006"
     name: "trigger-motor"
@@ -192,6 +195,12 @@ beep:
   timer:
     name: "tim4"
     clockkhz: 168000
+
+rtt:
+  detect-interval: 15 # 多少ms轮询一次下行缓冲区
+
+shell:
+  input-buf-size: 32
 
 # BSP配置
 can:
