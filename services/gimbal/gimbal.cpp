@@ -38,7 +38,9 @@
         与底盘类期待的方向相同。
         总结：
         假设云台电机 位置反馈值 与 控制电流值 的正负号对应方向的关系相同；
-        云台右转时，电机反馈角度减小，yaw-direction置-1，反之置1。
+        云台右转时，电机反馈角度减小，需要为累计角度值乘以-1；
+        但为了在6020正装的情况下，让yaw-direction与yaw轴电机的direction保持一致，
+        规定在此种情况下yaw-direction置1。反之置-1。
 */
 
 class Gimbal
@@ -87,7 +89,7 @@ class Gimbal
         systemTargetYaw = targetPitch = 0.0f;
         currentYaw = 0.0f;
         lastImuYaw = currentImuYaw = NAN;
-        yawDirection = ((Conf["yaw-direction"].get<int32_t>(-1) > 0) ? 1 : -1);
+        yawDirection = ((Conf["yaw-direction"].get<int32_t>(-1) > 0) ? -1 : 1); // 取反，原因见注释
 
         // 禁用云台模式，用于测试云台Yaw电机零度角在哪里
         disableMode = Conf["disable"].get<uint32_t>(1) != 0;
