@@ -21,7 +21,7 @@ class Shooter
 
         threadId = osThreadGetId();
         taskInterval = Conf["task-interval"].get<uint16_t>(20); // 任务间隔
-        fricSpeed = Conf["fric-speed"].get(5450.0f);            // 初始弹速
+        fricSpeed = Conf["fric-speed"].get(200.0f);             // 初始弹速
 
         // 拨弹轮拨出一发弹丸转角
         triggerAngle = Conf["trigger-angle"].get<float>(1 / 7.0 * 360);
