@@ -4,3 +4,5 @@
 #include <stdlib.h>
 #define pvPortMalloc malloc
 #define vPortFree free
+#define portENTER_CRITICAL()
+#define portEXIT_CRITICAL()

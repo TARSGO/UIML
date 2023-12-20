@@ -1,7 +1,6 @@
 #include "softbus.h"
 #include "cmsis_os.h"
 #include "hasher.h"
-#include "portmacro.h"
 #include "vector.h"
 
 #include <stdlib.h>
