@@ -1,6 +1,7 @@
 
 #include "../system/yamlparser.h"
 #include <cmath>
+#include <fstream>
 #include <functional>
 #include <iostream>
 
@@ -196,15 +197,15 @@ can:
       interval: 2
     1:
       can-x: 1
-      id: 511
+      id: 0x1FF
       interval: 2
     2:
       can-x: 2
-      id: 512
+      id: 0x200
       interval: 2
     3:
       can-x: 2
-      id: 511
+      id: 0x1ff
       interval: 2
 
 uart:
@@ -286,6 +287,10 @@ template <typename T> void AssertYamlValue(UimlYamlNodeObject &&obj, T given)
 void TestYamlParser()
 {
     std::cerr << __FUNCTION__ << std::endl;
+    std::ofstream ofs("test.yaml");
+    ofs.write(yaml_simple, strlen(yaml_simple));
+    ofs.close();
+
     UimlYamlNode *root;
 
     UimlYamlParse(yaml_simple, &root);
@@ -302,6 +307,12 @@ void TestYamlParser()
     AssertYamlValue(root, "/testcase/positive/float", 12.3456f);
     AssertYamlValue(root, "/testcase/string/hello", "world");
     AssertYamlValue(root, "/spi/spis/0/cs/0/name", "gyro");
+
+    // Hex test
+    AssertYamlValue(root, "/can/repeat-buffers/0/id", 0x200);
+    AssertYamlValue(root, "/can/repeat-buffers/2/id", 0x200);
+    AssertYamlValue(root, "/can/repeat-buffers/1/id", 0x1FF);
+    AssertYamlValue(root, "/can/repeat-buffers/3/id", 0x1FF);
 
     AssertYamlValue(Conf["chassis"]["info"]["wheel-radius"], 76.0f);
     AssertYamlValue(Conf["testcase"]["minus"]["int"], -65537);

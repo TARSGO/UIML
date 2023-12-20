@@ -15,5 +15,8 @@ target_include_directories(${PROJECT_NAME}_test PRIVATE
                            ../softbus
                            ../tools/include)
 
+# Uncomment to enable YAML Testcase Debug printout
+#target_compile_definitions(${PROJECT_NAME}_test PRIVATE -DUIML_TESTCASE)
+
 add_test(RunTest ${PROJECT_NAME}_test)
 set_tests_properties(RunTest PROPERTIES FAIL_REGULAR_EXPRESSION "^FAIL:")

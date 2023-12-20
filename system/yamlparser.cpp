@@ -9,6 +9,7 @@
 一个键只能占用一行。
 元素节点不保存其值类型，读取者读取时必须自行选取与解析器输出行为一致的类型。
 
+整数可以是1234这样写的形式，也可以是0x1234这样写的十六进制形式。其他写法不支持。
 只支持小数形式的浮点数（123.456），不支持指数形式。
 如数字被写作浮点形式，即使它的小数部分在当前精度下会变为0，值也会被按float存储。
 
@@ -18,26 +19,53 @@
 检测到未预期的字符时，会直接试图跳转至结尾状态。
 */
 
-#include <string.h>
-#include <stdio.h>
 #include "yamlparser.h"
 #include "hasher.h"
-extern "C" {
+#include <stdio.h>
+#include <string.h>
+
+extern "C"
+{
 #include "vector.h"
 }
 #include "cmsis_os.h"
 #include "strict.h"
 
+#ifdef UIML_TESTCASE
+#define Dbg(x, ...) fprintf(stderr, __FUNCTION__##": " x, ##__VA_ARGS__)
+#else
+#define Dbg(x, ...)
+#endif
+
 struct ParserContext
 {
-    const char* Input;
+    const char *Input;
     size_t Length;
     size_t Offset;
     size_t SubDictEnd;
 
     bool IsEOF() { return Offset >= Length; }
-    int Peek() { if (!IsEOF()) return Input[Offset]; else return EOF; }
-    int Take() { if (!IsEOF()) return Input[Offset++]; else return EOF; }
+    int Peek()
+    {
+        if (!IsEOF())
+            return Input[Offset];
+        else
+            return EOF;
+    }
+    int Take()
+    {
+        if (!IsEOF())
+            return Input[Offset++];
+        else
+            return EOF;
+    }
+    int Put()
+    {
+        if (Offset > 0)
+            return Input[--Offset];
+        else
+            return EOF;
+    }
 };
 
 enum ParserState
@@ -49,9 +77,9 @@ enum ParserState
     PS_InvalidChar,
 };
 
-static inline UimlYamlNode* CreateYamlNode()
+static inline UimlYamlNode *CreateYamlNode()
 {
-    UimlYamlNode* ret = (UimlYamlNode*)pvPortMalloc(sizeof(UimlYamlNode));
+    UimlYamlNode *ret = (UimlYamlNode *)pvPortMalloc(sizeof(UimlYamlNode));
     ret->Children = NULL;
     ret->Next = NULL;
     ret->NameRef = NULL;
@@ -60,64 +88,96 @@ static inline UimlYamlNode* CreateYamlNode()
     return ret;
 }
 
-static inline ParserState UimlParseYamlSkipComment(ParserContext& ctx)
+static inline ParserState UimlParseYamlSkipComment(ParserContext &ctx)
 {
     if (ctx.Peek() != '#')
+    {
+        Dbg("invalid char %c at %d\n", ctx.Peek(), ctx.Offset);
         return PS_InvalidChar;
-        
-    while (ctx.Peek() != '\n') 
+    }
+
+    while (ctx.Peek() != '\n')
     {
         if (ctx.IsEOF())
+        {
+            Dbg("EOF at %d\n", ctx.Offset);
             return PS_EOF;
-            
+        }
+
         ctx.Take();
     }
     ctx.Take(); // 取出\n
+    Dbg("skip comment at %d\n", ctx.Offset);
     return PS_EOL;
 }
 
 // 跳过缩进以及缩进后的注释
-static ParserState UimlParseYamlSkipIndentation(ParserContext& ctx, int indentSize)
+static ParserState UimlParseYamlSkipIndentation(ParserContext &ctx, int indentSize)
 {
     int indent = 0;
     if (ctx.IsEOF())
+    {
+        Dbg("EOF at %d\n", ctx.Offset);
         return PS_EOF;
+    }
 
     while (ctx.Peek() == ' ')
     { // 试图跳过所有应该跳过的空格
         indent++;
         ctx.Take();
     }
-    
+
     if (ctx.Peek() == '\n') // 如果是换行符，则返回EOL
     {
         ctx.Take();
+        Dbg("skip empty indent at %d\n", ctx.Offset);
         return PS_EOL;
-    } else if (ctx.Peek() == '#') // 如果这里是注释（允许存在），则跳过注释
-        return UimlParseYamlSkipComment(ctx);
-    else if (indent == indentSize)
-        return PS_OK;
-    else if (indentSize != indent && (indentSize - indent) % 2 == 0) // 如果正好缺2n个空格，则认为是字典结束
-        return PS_DictEnd;
-    else // 否则，跳过的空格个数与参数指定的不匹配，则认为缩进不匹配，返回错误
-        return PS_InvalidChar;
-}
-
-static inline ParserState UimlParseYamlSkipSpaces(ParserContext& ctx)
-{
-    while (ctx.Peek() == ' ')
-        ctx.Take();
-        
-    switch (ctx.Peek())
+    }
+    else if (ctx.Peek() == '#') // 如果这里是注释（允许存在），则跳过注释
     {
-        case '\n': ctx.Take(); return PS_EOL;
-        case '#': return UimlParseYamlSkipComment(ctx);
-        case EOF: return PS_EOF;
-        default: return PS_OK;
+        Dbg("skip indented comment at %d, got indent depth %d\n", ctx.Offset, indent);
+        return UimlParseYamlSkipComment(ctx);
+    }
+    else if (indent == indentSize)
+    {
+        Dbg("indentation match at %d, expected and got %d\n", ctx.Offset, indentSize);
+        return PS_OK;
+    }
+    else if (indentSize != indent &&
+             (indentSize - indent) % 2 == 0) // 如果正好缺2n个空格，则认为是字典结束
+    {
+        if (ctx.Offset == 3171)
+            __debugbreak();
+        Dbg("dict end at %d, expected %d, got %d\n", ctx.Offset, indentSize, indent);
+        return PS_DictEnd;
+    }
+    else // 否则，跳过的空格个数与参数指定的不匹配，则认为缩进不匹配，返回错误
+    {
+        Dbg("indentation mismatch at %d, expected %d, got %d\n", ctx.Offset, indentSize, indent);
+        return PS_InvalidChar;
     }
 }
 
-static ParserState UimlParseYamlGetKeyName(ParserContext& ctx, uint32_t& hash, const char*& nameRef)
+static inline ParserState UimlParseYamlSkipSpaces(ParserContext &ctx)
+{
+    while (ctx.Peek() == ' ')
+        ctx.Take();
+
+    switch (ctx.Peek())
+    {
+    case '\n':
+        ctx.Take();
+        return PS_EOL;
+    case '#':
+        return UimlParseYamlSkipComment(ctx);
+    case EOF:
+        return PS_EOF;
+    default:
+        return PS_OK;
+    }
+}
+
+static ParserState UimlParseYamlGetKeyName(ParserContext &ctx, uint32_t &hash, const char *&nameRef)
 {
     // 读取键名，直到遇到冒号或者空格
     auto originalOffset = ctx.Offset;
@@ -125,28 +185,59 @@ static ParserState UimlParseYamlGetKeyName(ParserContext& ctx, uint32_t& hash, c
     while (ctx.Peek() != ':' && ctx.Peek() != ' ')
     {
         if (ctx.Peek() == '\n')
+        {
+            Dbg("invalid char %c at %d\n", ctx.Peek(), ctx.Offset);
             return PS_InvalidChar;
-            
+        }
+
         ctx.Take();
     }
 
+    switch (ctx.Offset - originalOffset)
+    {
+    case 1:
+        Dbg("key name: %c\n", ctx.Input[originalOffset]);
+        break;
+    case 2:
+    case 3:
+        Dbg("key name: %c%c\n", ctx.Input[originalOffset], ctx.Input[originalOffset + 1]);
+        break;
+    case 4:
+    case 5:
+        Dbg("key name: %c%c%c\n",
+            ctx.Input[originalOffset],
+            ctx.Input[originalOffset + 1],
+            ctx.Input[originalOffset + 2]);
+        break;
+    default:
+        Dbg("key name: %c%c%c%c\n",
+            ctx.Input[originalOffset],
+            ctx.Input[originalOffset + 1],
+            ctx.Input[originalOffset + 2],
+            ctx.Input[originalOffset + 3]);
+        break;
+    }
+
     // 计算键名的哈希值
-    hash = Hasher_UIML32((uint8_t*)(ctx.Input + originalOffset), ctx.Offset - originalOffset);
+    hash = Hasher_UIML32((uint8_t *)(ctx.Input + originalOffset), ctx.Offset - originalOffset);
     nameRef = ctx.Input + originalOffset;
 
     // 跳过冒号及冒号前面的空格
     while (ctx.Peek() == ' ')
         ctx.Take();
-        
+
     if (ctx.Peek() != ':')
+    {
+        Dbg("invalid char %c at %d, expected colon\n", ctx.Peek(), ctx.Offset);
         return PS_InvalidChar;
-        
+    }
+
     ctx.Take();
 
     return PS_OK;
 }
 
-static ParserState UimlParseYamlStringValue(ParserContext& ctx, char** output)
+static ParserState UimlParseYamlStringValue(ParserContext &ctx, char **output)
 {
     size_t originalOffset;
 
@@ -157,28 +248,38 @@ static ParserState UimlParseYamlStringValue(ParserContext& ctx, char** output)
         while (ctx.Peek() != '"')
         {
             if (ctx.Peek() == '\n')
+            {
+                Dbg("invalid char %c at %d\n", ctx.Peek(), ctx.Offset);
                 return PS_InvalidChar;
-                
+            }
+
             ctx.Take();
         }
         ctx.Take();
     }
     else
+    {
+        Dbg("invalid char %c at %d\n", ctx.Peek(), ctx.Offset);
         return PS_InvalidChar;
+    }
 
     // 读取字符串
-    *output = (char*)pvPortMalloc(ctx.Offset - originalOffset); // 当前offset在后引号上，不需要加1就已经留有了\0的空间
+    *output = (char *)pvPortMalloc(
+        ctx.Offset - originalOffset); // 当前offset在后引号上，不需要加1就已经留有了\0的空间
     memcpy(*output, ctx.Input + originalOffset, ctx.Offset - originalOffset);
     (*output)[ctx.Offset - originalOffset - 1] = '\0'; // 需要多减去后引号的位置
+
+    Dbg("string value %s at %d\n", *output, ctx.Offset);
 
     return PS_OK;
 }
 
-static ParserState UimlParseYamlNumericValue(ParserContext& ctx, UimlYamlNode* output)
+static ParserState UimlParseYamlNumericValue(ParserContext &ctx, UimlYamlNode *output)
 {
     bool isNegative = false;
+    bool isHex = false;
     uint32_t integerPart = 0;
-    
+
     // 判断负号
     char c = ctx.Peek();
     if (c == '-')
@@ -187,54 +288,104 @@ static ParserState UimlParseYamlNumericValue(ParserContext& ctx, UimlYamlNode* o
         ctx.Take();
         c = ctx.Peek();
     }
-    if (c >= '0' && c <= '9')
+
+    // 判断十六进制前缀
+    if (c == '0')
+    {
+        ctx.Take();
+
+        // 新开一个c，如果不是x的话不能影响原来是数字的那个c
+        char c2 = ctx.Peek();
+        if (c2 == 'x' || c2 == 'X')
+        {
+            isHex = true;
+            ctx.Take();
+            c = ctx.Peek();
+        }
+        else
+        {
+            // 为满足下一阶段的预期，需要将0放回去， 也就是倒退一字节
+            ctx.Put();
+        }
+    }
+
+    // 运行到这一步，预期是c为Peek到的第一个数字
+    if ((c >= '0' && c <= '9') || (isHex && ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))))
     {
         // 解析整数部分
         do
         {
-            integerPart = integerPart * 10 + (c - '0');
+            if (isHex)
+            {
+                if (c >= '0' && c <= '9')
+                    integerPart = integerPart * 16 + (c - '0');
+                else if (c >= 'a' && c <= 'f')
+                    integerPart = integerPart * 16 + (c - 'a' + 10);
+                else if (c >= 'A' && c <= 'F')
+                    integerPart = integerPart * 16 + (c - 'A' + 10);
+            }
+            else
+            {
+                integerPart = integerPart * 10 + (c - '0');
+            }
             ctx.Take();
             c = ctx.Peek();
+        } while ((c >= '0' && c <= '9') ||
+                 (isHex && ((c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))));
+
+        // 如果是十六进制，则不应该有小数点
+        if (isHex && c == '.')
+        {
+            Dbg("invalid char %c at %d\n", ctx.Peek(), ctx.Offset);
+            return PS_InvalidChar;
         }
-        while (c >= '0' && c <= '9');
 
         // 判断是否为小数点
-        if (c == '.')
+        if (c == '.' && !isHex)
         {
-            ctx.Take(); // 丢弃小数点
+            ctx.Take();     // 丢弃小数点
             c = ctx.Peek(); // 读入数字
 
             float decimalCoeff = 0.1f, decimalPart = 0.0f;
             // 解析小数部分
-            do
+            while (c >= '0' && c <= '9')
             {
-                decimalPart = decimalPart + (c - '0') * decimalCoeff;
+                decimalPart += (c - '0') * decimalCoeff;
                 ctx.Take();
                 c = ctx.Peek();
                 decimalCoeff *= 0.1f;
             }
-            while (c >= '0' && c <= '9');
 
             output->F32 = integerPart + decimalPart;
             if (isNegative)
                 output->F32 = -output->F32;
+            Dbg("float value %f at %d\n", (isNegative ? -1 : 1) * output->F32, ctx.Offset);
             return PS_OK;
         }
         else
         {
             // 整数部分结束
             if (isNegative)
-                output->I32 = -integerPart;
+                output->I32 = -(int32_t)integerPart;
             else
                 output->U32 = integerPart;
+
+            if (isHex)
+                Dbg("hex value %d at %d\n", (isNegative ? -1 : 1) * output->I32, ctx.Offset);
+            else
+                Dbg("int value %d at %d\n", (isNegative ? -1 : 1) * output->I32, ctx.Offset);
+
             return PS_OK;
         }
     }
     else
+    {
+        Dbg("invalid char %c at %d\n", ctx.Peek(), ctx.Offset);
         return PS_InvalidChar;
+    }
 }
 
-static ParserState UimlParseYamlValue(ParserContext& ctx, UimlYamlNode* output)
+static ParserState UimlParseYamlValue(ParserContext &ctx, UimlYamlNode *output)
 {
     // 先判断值的类型，是数字还是字符串
     auto originalOffset = ctx.Offset;
@@ -242,19 +393,30 @@ static ParserState UimlParseYamlValue(ParserContext& ctx, UimlYamlNode* output)
 
     auto c = ctx.Peek();
     if ((c >= '0' && c <= '9') || c == '-') // 负号或者数字，认为这是一个数值类型
+    {
+        Dbg("numeric value at %d\n", ctx.Offset);
         return UimlParseYamlNumericValue(ctx, output);
+    }
     else if (c == '"') // 双引号，认为是字符串
+    {
+        Dbg("string value at %d\n", ctx.Offset);
         return UimlParseYamlStringValue(ctx, &(output->Str));
+    }
     else
+    {
+        Dbg("invalid char %c at %d\n", ctx.Peek(), ctx.Offset);
         return PS_InvalidChar;
+    }
 }
 
-static ParserState UimlParseYamlDictIndent(ParserContext& ctx, UimlYamlNode** output, int indentSpace)
+static ParserState UimlParseYamlDictIndent(ParserContext &ctx,
+                                           UimlYamlNode **output,
+                                           int indentSpace)
 {
     auto state = PS_OK;
     ctx.SubDictEnd = ctx.Offset; // 任何地方正常遇到合法行尾时都要更新
 
-    auto addIntoOutput = [&](UimlYamlNode* node){
+    auto addIntoOutput = [&](UimlYamlNode *node) {
         if (*output == NULL)
             *output = node;
         else
@@ -275,9 +437,14 @@ static ParserState UimlParseYamlDictIndent(ParserContext& ctx, UimlYamlNode** ou
         state = UimlParseYamlSkipIndentation(ctx, indentSpace);
         switch (state)
         {
-            case PS_OK: break;
-            case PS_EOL: ctx.SubDictEnd = ctx.Offset; continue; break; // 直接遇到行尾时，则继续下一行，并更新字典结尾位置
-            default: return state;
+        case PS_OK:
+            break;
+        case PS_EOL:
+            ctx.SubDictEnd = ctx.Offset;
+            continue;
+            break; // 直接遇到行尾时，则继续下一行，并更新字典结尾位置
+        default:
+            return state;
         }
 
         // 检测键名
@@ -285,39 +452,52 @@ static ParserState UimlParseYamlDictIndent(ParserContext& ctx, UimlYamlNode** ou
         state = UimlParseYamlGetKeyName(ctx, node->NameHash, node->NameRef);
         switch (state)
         {
-            case PS_OK: break;
-            case PS_InvalidChar: return state;
-            default: return state;
+        case PS_OK:
+            break;
+        case PS_InvalidChar:
+            return state;
+        default:
+            return state;
         }
 
         // 跳过空格
         state = UimlParseYamlSkipSpaces(ctx);
         switch (state)
         {
-            case PS_OK: break;
-            case PS_EOL:
+        case PS_OK:
+            break;
+        case PS_EOL: {
+            // 直接遇到行尾时，此时试图解析字典
+            // node->Children = CreateYamlNode();
+            state = UimlParseYamlDictIndent(ctx, &(node->Children), indentSpace + 2);
+            switch (state)
             {
-                // 直接遇到行尾时，此时试图解析字典
-                // node->Children = CreateYamlNode();
-                state = UimlParseYamlDictIndent(ctx, &(node->Children), indentSpace + 2);
-                switch (state)
-                {
-                    case PS_DictEnd: ctx.Offset = ctx.SubDictEnd; addIntoOutput(node); continue; // 恢复偏移值到字典结束处，继续解析下一行
-                    case PS_EOF: addIntoOutput(node); return state; // 遇到文件结尾，需要单独串进去。返回state以便上层函数检测到结尾
-                    case PS_OK: break;
-                    default: return state;
-                }
+            case PS_DictEnd:
+                ctx.Offset = ctx.SubDictEnd;
+                addIntoOutput(node);
+                continue; // 恢复偏移值到字典结束处，继续解析下一行
+            case PS_EOF:
+                addIntoOutput(node);
+                return state; // 遇到文件结尾，需要单独串进去。返回state以便上层函数检测到结尾
+            case PS_OK:
                 break;
+            default:
+                return state;
             }
-            default: return state;
+            break;
+        }
+        default:
+            return state;
         }
 
         // 解析值
         state = UimlParseYamlValue(ctx, node);
         switch (state)
         {
-            case PS_OK: break;
-            default: return state;
+        case PS_OK:
+            break;
+        default:
+            return state;
         }
 
         // 将节点串入链表
@@ -331,15 +511,20 @@ static ParserState UimlParseYamlDictIndent(ParserContext& ctx, UimlYamlNode** ou
 
         switch (state)
         {
-            case PS_OK:
-            case PS_EOL: continue; break;
-            case PS_EOF: return PS_OK; break;
-            default: return state;
+        case PS_OK:
+        case PS_EOL:
+            continue;
+            break;
+        case PS_EOF:
+            return PS_OK;
+            break;
+        default:
+            return state;
         }
     }
 }
 
-size_t UimlYamlParse(const char* input, UimlYamlNode** output)
+size_t UimlYamlParse(const char *input, UimlYamlNode **output)
 {
     *output = CreateYamlNode();
     ParserContext ctx = {input, strlen(input), 0};
@@ -348,12 +533,12 @@ size_t UimlYamlParse(const char* input, UimlYamlNode** output)
     return ctx.Offset;
 }
 
-const UimlYamlNode* UimlYamlGetValue(const UimlYamlNode* input, const char* childName)
+const UimlYamlNode *UimlYamlGetValue(const UimlYamlNode *input, const char *childName)
 {
     auto nameLength = strlen(childName);
-    auto nameHash = Hasher_UIML32((uint8_t*)childName, nameLength);
-    const UimlYamlNode* ret = input;
-    
+    auto nameHash = Hasher_UIML32((uint8_t *)childName, nameLength);
+    const UimlYamlNode *ret = input;
+
     while (ret != NULL)
     {
         if (ret->NameHash == nameHash && !strncmp(ret->NameRef, childName, nameLength))
@@ -366,18 +551,19 @@ const UimlYamlNode* UimlYamlGetValue(const UimlYamlNode* input, const char* chil
     return NULL;
 }
 
-const UimlYamlNode* UimlYamlGetValueByPath(const UimlYamlNode* input, const char* path)
+const UimlYamlNode *UimlYamlGetValueByPath(const UimlYamlNode *input, const char *path)
 {
     const char *begin = path, *end;
     const UimlYamlNode *ret = input;
 
-    do {
+    do
+    {
         end = strchr(begin, '/');
         if (end > begin || end == NULL)
         {
             auto nameLength = (end == NULL) ? strlen(begin) : (end - begin);
-            auto nameHash = Hasher_UIML32((uint8_t*)begin, nameLength);
-            
+            auto nameHash = Hasher_UIML32((uint8_t *)begin, nameLength);
+
             ret = ret->Children;
 
             while (ret != NULL)
@@ -388,7 +574,7 @@ const UimlYamlNode* UimlYamlGetValueByPath(const UimlYamlNode* input, const char
             }
 
             return NULL;
-Found:
+        Found:
             begin = end + 1;
         }
         else if (end == begin)
