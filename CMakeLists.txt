@@ -15,6 +15,9 @@ add_subdirectory(services)
 add_subdirectory(softbus)
 add_subdirectory(system)
 
+# Embedded Template Library
+add_subdirectory(lib/etl)
+
 # UIML 静态库部分
 add_library(uiml_static OBJECT
     ${TOOLS_MODULE_SRC}
@@ -26,6 +29,7 @@ add_library(uiml_static OBJECT
 # 链接祖传的AHRS静态库
 # 谁能把这玩意搞掉啊求求了
 target_link_libraries(uiml_static PRIVATE ${CMAKE_SOURCE_DIR}/lib/AHRS.lib)
+target_link_libraries(uiml_static PUBLIC etl::etl) # 链接ETL
 
 # 包含目录
 target_include_directories(uiml_static PUBLIC
