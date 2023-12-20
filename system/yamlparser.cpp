@@ -146,8 +146,6 @@ static ParserState UimlParseYamlSkipIndentation(ParserContext &ctx, int indentSi
     else if (indentSize != indent &&
              (indentSize - indent) % 2 == 0) // 如果正好缺2n个空格，则认为是字典结束
     {
-        if (ctx.Offset == 3171)
-            __debugbreak();
         Dbg("dict end at %d, expected %d, got %d\n", ctx.Offset, indentSize, indent);
         return PS_DictEnd;
     }
