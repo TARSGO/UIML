@@ -2,6 +2,7 @@
 #include <cmsis_os.h>
 #include "sys_conf.h"
 #include "dependency.h"
+#include "yamlparser.h"
 
 ConfItem* systemConfig = NULL;
 
@@ -17,7 +18,7 @@ osThreadId serviceTaskHandle[serviceNum];
 void StartDefaultTask(void const * argument)
 {
 	// 执行YAML解析
-	UimlYamlParse(configYaml, &systemConfig);
+	UimlYamlParse(configYaml, (struct UimlYamlNode**)&systemConfig);
 
 	// 初始化依赖启动模块
 	Depends_Init();
