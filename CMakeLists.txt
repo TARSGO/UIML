@@ -40,7 +40,9 @@ target_include_directories(uiml_static PUBLIC
 )
 
 # 激发所有警告
-target_compile_options(uiml_static PRIVATE -Wall)
+# FIXME: 由于UIML Softbus在C API中使用的部分宏会导致报出missing brace警告（如按手册编写无实际影响）
+# 故取消该警告，但留一个FIXME供检索
+target_compile_options(uiml_static PRIVATE -Wall -Wno-missing-braces)
 
 if(PROJECT_IS_TOP_LEVEL)
     add_subdirectory(test)
