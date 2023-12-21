@@ -244,6 +244,9 @@ testcase:
   #
 )";
 
+extern size_t BuiltKeyCount;
+extern size_t RemovedNamerefCount;
+
 template <typename T> bool CompareYamlValue(const UimlYamlNode *node, T value)
 {
     return !memcmp(&(node->I32), &value, sizeof(T));
@@ -294,6 +297,14 @@ void TestYamlParser()
     UimlYamlNode *root;
 
     UimlYamlParse(yaml_simple, &root);
+
+#ifdef UIML_TESTCASE
+    std::cerr << "BuiltDictCount: " << BuiltKeyCount
+              << ", RemovedNamerefCount: " << RemovedNamerefCount << std::endl;
+    std::cerr << "Hash collision rate: " << (1.0 - double(RemovedNamerefCount) / BuiltKeyCount)
+              << std::endl;
+#endif
+
     auto pChassis = UimlYamlGetValue(root->Children, "chassis");
     auto pInfo = UimlYamlGetValue(pChassis->Children, "info");
     auto pOffsetX = UimlYamlGetValue(pInfo->Children, "wheel-radius");

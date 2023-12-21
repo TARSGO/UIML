@@ -33,6 +33,8 @@ extern "C"
 
 #ifdef UIML_TESTCASE
 #define Dbg(x, ...) fprintf(stderr, __FUNCTION__##": " x, ##__VA_ARGS__)
+size_t BuiltKeyCount = 0;
+size_t RemovedNamerefCount = 0;
 #else
 #define Dbg(x, ...)
 #endif
@@ -175,7 +177,7 @@ static inline ParserState UimlParseYamlSkipSpaces(ParserContext &ctx)
     }
 }
 
-static ParserState UimlParseYamlGetKeyName(ParserContext &ctx, uint32_t &hash, const char *&nameRef)
+static ParserState UimlParseYamlGetKeyName(ParserContext &ctx, UimlYamlNode *nodeRef)
 {
     // 读取键名，直到遇到冒号或者空格
     auto originalOffset = ctx.Offset;
@@ -217,8 +219,9 @@ static ParserState UimlParseYamlGetKeyName(ParserContext &ctx, uint32_t &hash, c
     }
 
     // 计算键名的哈希值
-    hash = Hasher_UIML32((uint8_t *)(ctx.Input + originalOffset), ctx.Offset - originalOffset);
-    nameRef = ctx.Input + originalOffset;
+    nodeRef->NameHash =
+        Hasher_UIML32((uint8_t *)(ctx.Input + originalOffset), ctx.Offset - originalOffset);
+    nodeRef->NameRef = ctx.Input + originalOffset;
 
     // 跳过冒号及冒号前面的空格
     while (ctx.Peek() == ' ')
@@ -354,6 +357,7 @@ static ParserState UimlParseYamlNumericValue(ParserContext &ctx, UimlYamlNode *o
                 decimalCoeff *= 0.1f;
             }
 
+            output->Type = UYaFloat32;
             output->F32 = integerPart + decimalPart;
             if (isNegative)
                 output->F32 = -output->F32;
@@ -363,6 +367,7 @@ static ParserState UimlParseYamlNumericValue(ParserContext &ctx, UimlYamlNode *o
         else
         {
             // 整数部分结束
+            output->Type = UYaAnyInteger32;
             if (isNegative)
                 output->I32 = -(int32_t)integerPart;
             else
@@ -398,6 +403,7 @@ static ParserState UimlParseYamlValue(ParserContext &ctx, UimlYamlNode *output)
     else if (c == '"') // 双引号，认为是字符串
     {
         Dbg("string value at %d\n", ctx.Offset);
+        output->Type = UYaString;
         return UimlParseYamlStringValue(ctx, &(output->Str));
     }
     else
@@ -414,11 +420,43 @@ static ParserState UimlParseYamlDictIndent(ParserContext &ctx,
     auto state = PS_OK;
     ctx.SubDictEnd = ctx.Offset; // 任何地方正常遇到合法行尾时都要更新
 
+    // 当成函数用的，用于将节点串入链表
     auto addIntoOutput = [&](UimlYamlNode *node) {
+        // 优化生成的字典，如果某个哈希值不产生碰撞，则把NameRef置空，表明不需要再次核对名称
+        {
+            auto current = node;
+            while (current != NULL)
+            {
+                auto next = current->Next;
+                auto hash = current->NameHash;
+                auto collision = false;
+                while (next != NULL)
+                {
+                    if (next->NameHash == hash)
+                    {
+                        collision = true;
+                        break;
+                    }
+                    next = next->Next;
+                }
+                if (!collision)
+                {
+                    Dbg("Removed NameRef for node %p\n", current);
+#ifdef UIML_TESTCASE
+                    RemovedNamerefCount++;
+#endif
+                    current->NameRef = NULL;
+                }
+                current = next;
+            }
+        }
+
+        // 如果output是空的，就表明是第一个节点，直接放进去
         if (*output == NULL)
             *output = node;
         else
         {
+            // 否则，找到最后一个节点，把新节点串在后面
             auto p = *output;
             while (p->Next != NULL)
                 p = p->Next;
@@ -445,9 +483,15 @@ static ParserState UimlParseYamlDictIndent(ParserContext &ctx,
             return state;
         }
 
-        // 检测键名
+        // 新建节点
         auto node = CreateYamlNode();
-        state = UimlParseYamlGetKeyName(ctx, node->NameHash, node->NameRef);
+        node->Type = UYaDictionary;
+#ifdef UIML_TESTCASE
+        BuiltDictCount++;
+#endif
+
+        // 检测键名
+        state = UimlParseYamlGetKeyName(ctx, node);
         switch (state)
         {
         case PS_OK:
@@ -513,9 +557,11 @@ static ParserState UimlParseYamlDictIndent(ParserContext &ctx,
         case PS_EOL:
             continue;
             break;
-        case PS_EOF:
+        case PS_EOF: {
+            Dbg("EOF at %d\n", ctx.Offset);
             return PS_OK;
             break;
+        }
         default:
             return state;
         }
@@ -534,12 +580,13 @@ size_t UimlYamlParse(const char *input, UimlYamlNode **output)
 const UimlYamlNode *UimlYamlGetValue(const UimlYamlNode *input, const char *childName)
 {
     auto nameLength = strlen(childName);
-    auto nameHash = Hasher_UIML32((uint8_t *)childName, nameLength);
+    auto nameHash = UimlYamlPartialHash(Hasher_UIML32((uint8_t *)childName, nameLength));
     const UimlYamlNode *ret = input;
 
     while (ret != NULL)
     {
-        if (ret->NameHash == nameHash && !strncmp(ret->NameRef, childName, nameLength))
+        if (ret->NameHash == nameHash &&
+            ((ret->NameRef == NULL) || (!strncmp(ret->NameRef, childName, nameLength))))
         {
             return ret;
         }
@@ -560,13 +607,14 @@ const UimlYamlNode *UimlYamlGetValueByPath(const UimlYamlNode *input, const char
         if (end > begin || end == NULL)
         {
             auto nameLength = (end == NULL) ? strlen(begin) : (end - begin);
-            auto nameHash = Hasher_UIML32((uint8_t *)begin, nameLength);
+            auto nameHash = UimlYamlPartialHash(Hasher_UIML32((uint8_t *)begin, nameLength));
 
             ret = ret->Children;
 
             while (ret != NULL)
             {
-                if (ret->NameHash == nameHash && !strncmp(ret->NameRef, begin, nameLength))
+                if (ret->NameHash == nameHash &&
+                    ((ret->NameRef == NULL) || (!strncmp(ret->NameRef, begin, nameLength))))
                     goto Found; // 跳出内循环并跳过错误情况处理
                 ret = ret->Next;
             }

@@ -1,12 +1,26 @@
 
 #pragma once
 
+#include "platform.h"
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
+enum UimlYamlNodeDataType
+{
+    UYaAnyInteger32,
+    UYaFloat32,
+    UYaString,
+    UYaDictionary,
+};
+
 struct UimlYamlNode
 {
-    uint32_t NameHash;
+    struct
+    {
+        UimlYamlNodeDataType Type : 2;
+        uint32_t NameHash : 30;
+    };
     const char *NameRef;
     struct UimlYamlNode *Next;
     union {
@@ -24,12 +38,15 @@ extern "C"
 {
 #endif
 
-    size_t UimlYamlParse(const char *input, struct UimlYamlNode **output);
+size_t UimlYamlParse(const char *input, struct UimlYamlNode **output);
 
-    const struct UimlYamlNode *UimlYamlGetValue(const struct UimlYamlNode *input,
-                                                const char *childName);
-    const struct UimlYamlNode *UimlYamlGetValueByPath(const struct UimlYamlNode *input,
-                                                      const char *path);
+const struct UimlYamlNode *UimlYamlGetValue(const struct UimlYamlNode *input,
+                                            const char *childName);
+const struct UimlYamlNode *UimlYamlGetValueByPath(const struct UimlYamlNode *input,
+                                                  const char *path);
+
+// 由于数据结构里占用了最高2bit做类型表示，Hash对比时也需要去掉刚算出来的Hash的两bit
+inline uint32_t UimlYamlPartialHash(uint32_t x) { return x & (~0xC0000000); }
 
 #ifdef __cplusplus
 } // extern "C" {
@@ -41,14 +58,9 @@ class UimlYamlNodeObject
 
   public:
     UimlYamlNodeObject() = delete;
-    UimlYamlNodeObject(const UimlYamlNode *node) : m_node(node)
-    {
-    }
+    UimlYamlNodeObject(const UimlYamlNode *node) : m_node(node) {}
 
-    operator const UimlYamlNode *() const
-    {
-        return m_node;
-    }
+    operator const UimlYamlNode *() const { return m_node; }
 
     UimlYamlNodeObject operator[](const char *childName) const
     {
