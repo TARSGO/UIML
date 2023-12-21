@@ -28,7 +28,7 @@ add_library(uiml_static OBJECT
 
 # 链接祖传的AHRS静态库
 # 谁能把这玩意搞掉啊求求了
-target_link_libraries(uiml_static PRIVATE ${CMAKE_SOURCE_DIR}/lib/AHRS.lib)
+target_link_libraries(uiml_static PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/AHRS.lib)
 target_link_libraries(uiml_static PUBLIC etl::etl) # 链接ETL
 
 # 包含目录
