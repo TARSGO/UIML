@@ -90,6 +90,40 @@ static inline UimlYamlNode *CreateYamlNode()
     return ret;
 }
 
+static inline void UimlYamlOptimizeDictionary(UimlYamlNode *node)
+{
+    // 优化生成的字典，如果某个哈希值不产生碰撞，则把NameRef置空，表明不需要再次核对名称
+    if (node->Type == UYaDictionary)
+    {
+        auto current = node->Children;
+        while (current != NULL)
+        {
+            auto next = current->Next;
+            auto hash = current->NameHash;
+            auto collision = false;
+            while (next != NULL)
+            {
+                if (next->NameHash == hash)
+                {
+                    collision = true;
+                    Dbg("Name hash collision on node %p\n", current);
+                    break;
+                }
+                next = next->Next;
+            }
+            if (!collision)
+            {
+                Dbg("Removed NameRef (%c...) for node %p\n", current->NameRef[0], current);
+#ifdef UIML_TESTCASE
+                RemovedNamerefCount++;
+#endif
+                current->NameRef = NULL;
+            }
+            current = current->Next;
+        }
+    }
+}
+
 static inline ParserState UimlParseYamlSkipComment(ParserContext &ctx)
 {
     if (ctx.Peek() != '#')
@@ -422,35 +456,6 @@ static ParserState UimlParseYamlDictIndent(ParserContext &ctx,
 
     // 当成函数用的，用于将节点串入链表
     auto addIntoOutput = [&](UimlYamlNode *node) {
-        // 优化生成的字典，如果某个哈希值不产生碰撞，则把NameRef置空，表明不需要再次核对名称
-        {
-            auto current = node;
-            while (current != NULL)
-            {
-                auto next = current->Next;
-                auto hash = current->NameHash;
-                auto collision = false;
-                while (next != NULL)
-                {
-                    if (next->NameHash == hash)
-                    {
-                        collision = true;
-                        break;
-                    }
-                    next = next->Next;
-                }
-                if (!collision)
-                {
-                    Dbg("Removed NameRef for node %p\n", current);
-#ifdef UIML_TESTCASE
-                    RemovedNamerefCount++;
-#endif
-                    current->NameRef = NULL;
-                }
-                current = next;
-            }
-        }
-
         // 如果output是空的，就表明是第一个节点，直接放进去
         if (*output == NULL)
             *output = node;
@@ -516,9 +521,11 @@ static ParserState UimlParseYamlDictIndent(ParserContext &ctx,
             {
             case PS_DictEnd:
                 ctx.Offset = ctx.SubDictEnd;
+                UimlYamlOptimizeDictionary(node);
                 addIntoOutput(node);
                 continue; // 恢复偏移值到字典结束处，继续解析下一行
             case PS_EOF:
+                UimlYamlOptimizeDictionary(node);
                 addIntoOutput(node);
                 return state; // 遇到文件结尾，需要单独串进去。返回state以便上层函数检测到结尾
             case PS_OK:
@@ -571,9 +578,12 @@ static ParserState UimlParseYamlDictIndent(ParserContext &ctx,
 size_t UimlYamlParse(const char *input, UimlYamlNode **output)
 {
     *output = CreateYamlNode();
+    (*output)->Type = UYaDictionary;
     ParserContext ctx = {input, strlen(input), 0};
     auto state = UimlParseYamlDictIndent(ctx, &((*output)->Children), 0);
-    UIML_FATAL_ASSERT(ctx.Offset == ctx.Length, "YAML parser did not reach EOF!");
+    UIML_FATAL_ASSERT(ctx.Offset == ctx.Length && state == PS_EOF,
+                      "YAML parser did not reach EOF!");
+    UimlYamlOptimizeDictionary(*output);
     return ctx.Offset;
 }
 
