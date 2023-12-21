@@ -18,7 +18,7 @@ struct UimlYamlNode
 {
     struct
     {
-        UimlYamlNodeDataType Type : 2;
+        enum UimlYamlNodeDataType Type : 2;
         uint32_t NameHash : 30;
     };
     const char *NameRef;
