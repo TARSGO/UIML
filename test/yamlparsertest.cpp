@@ -299,7 +299,7 @@ void TestYamlParser()
     UimlYamlParse(yaml_simple, &root);
 
 #ifdef UIML_TESTCASE
-    std::cerr << "BuiltDictCount: " << BuiltKeyCount
+    std::cerr << "BuiltKeyCount: " << BuiltKeyCount
               << ", RemovedNamerefCount: " << RemovedNamerefCount << std::endl;
     std::cerr << "Hash collision rate: " << (1.0 - double(RemovedNamerefCount) / BuiltKeyCount)
               << std::endl;

@@ -487,7 +487,7 @@ static ParserState UimlParseYamlDictIndent(ParserContext &ctx,
         auto node = CreateYamlNode();
         node->Type = UYaDictionary;
 #ifdef UIML_TESTCASE
-        BuiltDictCount++;
+        BuiltKeyCount++;
 #endif
 
         // 检测键名
