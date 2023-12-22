@@ -227,4 +227,7 @@ void Chassis_StopCallback(const char *name, SoftBusFrame *frame, void *bindData)
     {
         chassis->motors[i]->EmergencyStop();
     }
+
+    // 立即使电机动作
+    Bus_RemoteFuncCall("/can/flush-buf", {{nullptr, nullptr}});
 }

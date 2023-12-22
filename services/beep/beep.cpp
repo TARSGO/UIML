@@ -104,7 +104,7 @@ extern "C" void Beep_TaskMain(void *argument)
 {
     // Depends_WaitFor(svc_beep, { svc_tim });
     Beep_Init((ConfItem *)argument);
-    // Depends_SignalFinished(svc_beep);
+    Depends_SignalFinished(svc_beep);
 
     vTaskDelete(NULL);
 }

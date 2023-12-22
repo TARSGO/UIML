@@ -7,6 +7,7 @@
 #include "imu.h"
 #include "pid.h"
 #include "softbus.h"
+#include "strict.h"
 #include "sys_conf.h"
 #include <cstddef>
 #include <cstring>
@@ -31,14 +32,14 @@ typedef struct
         float mag[3];
         float gyroOffset[3];
         float tmp;
-    } imu;
+    } imuData;
     uint8_t spiX;
     float yaw, pitch, roll;
     float targetTmp;
     uint8_t timX;
     uint8_t channelX;
 
-    BasicImu *gyro;
+    BasicImu *imu;
     Filter *filter;
 
     uint16_t taskInterval; // 任务执行间隔
@@ -64,7 +65,7 @@ extern "C" void INS_TaskCallback(void const *argument)
 
     osDelay(50);
     INS_Init(&ins, (ConfItem *)argument);
-    AHRS_init(ins.imu.quat, ins.imu.accel, ins.imu.mag);
+    AHRS_init(ins.imuData.quat, ins.imuData.accel, ins.imuData.mag);
     // 校准零偏
     //  for(int i=0;i<10000;i++)
     //  {
@@ -78,35 +79,33 @@ extern "C" void INS_TaskCallback(void const *argument)
     //  ins.imu.gyroOffset[1] = ins.imu.gyroOffset[1]/10000.0f;
     //  ins.imu.gyroOffset[2] = ins.imu.gyroOffset[2]/10000.0f;
 
-    ins.imu.gyroOffset[0] = -0.000767869; // 10次校准取均值
-    ins.imu.gyroOffset[1] = 0.000771033;
-    ins.imu.gyroOffset[2] = 0.001439746;
-
     Depends_SignalFinished(svc_ins);
 
     /* Infinite loop */
     while (1)
     {
-        ins.gyro->Acquire(); // 采样
-        ins.gyro->GetGyroscopeData(ins.imu.gyro[0], ins.imu.gyro[1], ins.imu.gyro[2]);
-        ins.gyro->GetAccelerometerData(ins.imu.accel[0], ins.imu.accel[1], ins.imu.accel[2]);
-        ins.imu.tmp = ins.gyro->GetTemperature();
+        ins.imu->Acquire(); // 采样
+        ins.imu->GetGyroscopeData(ins.imuData.gyro[0], ins.imuData.gyro[1], ins.imuData.gyro[2]);
+        ins.imu->GetAccelerometerData(ins.imuData.accel[0],
+                                      ins.imuData.accel[1],
+                                      ins.imuData.accel[2]);
+        ins.imuData.tmp = ins.imu->GetTemperature();
         INS_Remap(&ins);
 
         for (uint8_t i = 0; i < 3; i++)
-            ins.imu.gyro[i] -= ins.imu.gyroOffset[i];
+            ins.imuData.gyro[i] -= ins.imuData.gyroOffset[i];
 
         // 滤波
         //  for(uint8_t i=0;i<3;i++)
         //  	ins.imu.accel[i] = ins.filter->cala(ins.filter , ins.imu.accel[i]);
         // 数据融合
 
-        AHRS_update(ins.imu.quat,
+        AHRS_update(ins.imuData.quat,
                     ins.taskInterval / 1000.0f,
-                    ins.imu.gyro,
-                    ins.imu.accel,
-                    ins.imu.mag);
-        get_angle(ins.imu.quat, &ins.yaw, &ins.pitch, &ins.roll);
+                    ins.imuData.gyro,
+                    ins.imuData.accel,
+                    ins.imuData.mag);
+        get_angle(ins.imuData.quat, &ins.yaw, &ins.pitch, &ins.roll);
         ins.yaw = ins.yaw / PI * 180;
         ins.pitch = ins.pitch / PI * 180;
         ins.roll = ins.roll / PI * 180;
@@ -140,11 +139,19 @@ void INS_Init(INS *ins, ConfItem *dict)
     // 根据安装轴推算重映射关系
     INS_Init_RemapRelations(ins, fwdAxis, upAxis);
 
-    ins->gyro = BasicImu::Create(Conf["imu"]); // 创建陀螺仪对象
-    ins->gyro->Acquire();                      // 先初始化采样
-    ins->gyro->GetGyroscopeData(ins->imu.gyro[0], ins->imu.gyro[1], ins->imu.gyro[2]);
-    ins->gyro->GetAccelerometerData(ins->imu.accel[0], ins->imu.accel[1], ins->imu.accel[2]);
-    ins->imu.tmp = ins->gyro->GetTemperature();
+    // 读取陀螺仪零漂参数
+    auto gyroStaticDriftNode = Conf["gyro-static"];
+    ins->imuData.gyroOffset[0] = gyroStaticDriftNode["0"].get<float>(0.0f);
+    ins->imuData.gyroOffset[1] = gyroStaticDriftNode["1"].get<float>(0.0f);
+    ins->imuData.gyroOffset[2] = gyroStaticDriftNode["2"].get<float>(0.0f);
+
+    ins->imu = BasicImu::Create(Conf["imu"]); // 创建陀螺仪对象
+    ins->imu->Acquire();                      // 先初始化采样
+    ins->imu->GetGyroscopeData(ins->imuData.gyro[0], ins->imuData.gyro[1], ins->imuData.gyro[2]);
+    ins->imu->GetAccelerometerData(ins->imuData.accel[0],
+                                   ins->imuData.accel[1],
+                                   ins->imuData.accel[2]);
+    ins->imuData.tmp = ins->imu->GetTemperature();
     INS_Remap(ins);
 
     // 创建定时器进行温度pid控制
@@ -161,20 +168,20 @@ void INS_Remap(INS *ins)
     for (int i = 0; i < 3; i++)
     {
         auto &remap = ins->remap[i];
-        mappedAccel[i] = ins->imu.accel[remap.index] * remap.sign;
-        mappedGyro[i] = ins->imu.gyro[remap.index] * remap.sign;
+        mappedAccel[i] = ins->imuData.accel[remap.index] * remap.sign;
+        mappedGyro[i] = ins->imuData.gyro[remap.index] * remap.sign;
         // TODO: 磁力计 Mag
     }
 
-    memcpy(ins->imu.accel, mappedAccel, sizeof(mappedAccel));
-    memcpy(ins->imu.gyro, mappedGyro, sizeof(mappedGyro));
+    memcpy(ins->imuData.accel, mappedAccel, sizeof(mappedAccel));
+    memcpy(ins->imuData.gyro, mappedGyro, sizeof(mappedGyro));
 }
 
 // 软件定时器回调函数
 void INS_TmpPIDTimerCallback(void const *argument)
 {
     INS *ins = (INS *)pvTimerGetTimerID((TimerHandle_t)argument);
-    ins->gyro->TemperatureControlTick();
+    ins->imu->TemperatureControlTick();
 }
 
 // 推算重映射关系
@@ -183,10 +190,8 @@ void INS_Init_RemapRelations(INS *ins, const char *fwdAxis, const char *upAxis)
     if (fwdAxis == nullptr || upAxis == nullptr || strlen(fwdAxis) != 2 || strlen(upAxis) != 2 ||
         fwdAxis[1] == upAxis[1])
     {
-        // 检查非法输入：必须为两个字符长的字符串且两个轴不能相同，否则启用默认配置（吗？可能导致疯车）
-        fwdAxis = "-y";
-        upAxis = "+z";
-        // TODO：警告音
+        // 检查非法输入：必须为两个字符长的字符串且两个轴不能相同，否则停机
+        UIML_CRASH_STRICT("Invalid INS Remap configuration", (void *)upAxis, (void *)fwdAxis);
     }
 
     // 向量子函数
@@ -198,11 +203,13 @@ void INS_Init_RemapRelations(INS *ins, const char *fwdAxis, const char *upAxis)
         switch (axis[0]) {
             case '+': assign = 1; break;
             case '-': assign = -1; break;
+            default: UIML_CRASH_STRICT("Invalid INS Remap: Bad sign", (void*)axis);
         }
         switch (axis[1]) {
-            case 'x': vec[0] = assign; break;
-            case 'y': vec[1] = assign; break;
-            case 'z': vec[2] = assign; break;
+            case 'X': case 'x': vec[0] = assign; break;
+            case 'Y': case 'y': vec[1] = assign; break;
+            case 'Z': case 'z': vec[2] = assign; break;
+            default: UIML_CRASH_STRICT("Invalid INS Remap: Bad axis", (void*)axis);
         }
     };
     // vec1 X vec2

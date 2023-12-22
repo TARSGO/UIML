@@ -12,8 +12,8 @@ function(_uimlpriv_generate_service_list_include_target SERVICE_LIST_HEADER)
 endfunction()
 
 function(target_link_uiml)
-    set(options OPTIONAL FAST)
-    set(oneValueArgs STRICT_MODE SERVICE_LIST)
+    set(options OPTIONAL FAST STRICT_MODE)
+    set(oneValueArgs SERVICE_LIST)
     set(multiValueArgs TARGET_NAME CPU_TYPE)
     cmake_parse_arguments(ARG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )

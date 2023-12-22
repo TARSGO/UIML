@@ -232,6 +232,9 @@ BUS_TOPICENDPOINT(Gimbal::EmergencyStopCallback)
 
     self->motorPitch->EmergencyStop();
     self->motorYaw->EmergencyStop();
+
+    // 立即使电机动作
+    Bus_RemoteFuncCall("/can/flush-buf", {{nullptr, nullptr}});
 }
 
 BUS_REMOTEFUNC(Gimbal::QueryGimbalStateFuncCallback)

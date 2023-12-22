@@ -57,5 +57,6 @@ extern const char *configYaml;
 extern PeriphHandle *peripheralHandles;
 extern ConfItem *systemConfig;
 extern osThreadId serviceTaskHandle[];
+extern const char *serviceNames[];
 
 #endif

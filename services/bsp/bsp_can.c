@@ -1,3 +1,4 @@
+#include "stm32f4xx_hal.h"
 #include "can.h"
 #include "cmsis_os.h"
 #include "config.h"
@@ -40,6 +41,7 @@ void BSP_CAN_InitHardware(CANInfo *info);
 void BSP_CAN_InitRepeatBuffer(CANRepeatBuffer *buffer, ConfItem *dict);
 bool BSP_CAN_SetBufCallback(const char *name, SoftBusFrame *frame, void *bindData);
 bool BSP_CAN_SendOnceCallback(const char *name, SoftBusFrame *frame, void *bindData);
+BUS_REMOTEFUNC(BSP_CAN_FlushRepeatBuffers);
 void BSP_CAN_TimerCallback(void const *argument);
 uint8_t BSP_CAN_SendFrame(CAN_HandleTypeDef *hcan, uint16_t StdId, uint8_t *data);
 
@@ -128,6 +130,7 @@ void BSP_CAN_Init(ConfItem *dict)
     // 订阅广播
     Bus_RemoteFuncRegister(NULL, BSP_CAN_SetBufCallback, "/can/set-buf");
     Bus_RemoteFuncRegister(NULL, BSP_CAN_SetBufCallback, "/can/send-once");
+    Bus_RemoteFuncRegister(NULL, BSP_CAN_FlushRepeatBuffers, "/can/flush-buf");
 
     canService.initFinished = 1;
 }
@@ -261,4 +264,27 @@ bool BSP_CAN_SendOnceCallback(const char *name, SoftBusFrame *frame, void *bindD
         }
     }
     return false;
+}
+// CAN循环缓冲区立即Flush（全部缓冲区全部立即发出）
+BUS_REMOTEFUNC(BSP_CAN_FlushRepeatBuffers)
+{
+    for (size_t i = 0; i < canService.bufferNum; i++)
+    {
+        CANRepeatBuffer *buffer = &canService.repeatBuffers[i];
+
+        uint8_t ret = HAL_ERROR;
+        uint32_t tick = HAL_GetTick();
+
+        // 因为加入Flush缓冲区函数的原意是想在急停时立即停止所有电机，
+        // 执行时是一次把好几个缓冲区全Flush掉，担心会造成发送邮箱堵塞，
+        // 所以设置了发一次等1ms，如不成功就一直重复，直到5ms以后还不行就放弃（尽力急停了）
+        do
+        {
+            ret = BSP_CAN_SendFrame(buffer->canInfo->hcan, buffer->frameID, buffer->data);
+            if (ret != HAL_OK)
+                HAL_Delay(1);
+        } while ((ret != HAL_OK) && (HAL_GetTick() - tick < 5));
+    }
+
+    return true;
 }

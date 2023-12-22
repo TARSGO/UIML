@@ -257,6 +257,9 @@ BUS_TOPICENDPOINT(Shooter::EmergencyStopCallback)
         self->fricMotors[i]->EmergencyStop();
     }
     self->triggerMotor->EmergencyStop();
+
+    // 立即使电机动作
+    Bus_RemoteFuncCall("/can/flush-buf", {{nullptr, nullptr}});
 }
 
 extern "C" void Shooter_TaskCallback(void const *argument)

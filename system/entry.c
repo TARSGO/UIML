@@ -11,6 +11,14 @@ ConfItem* systemConfig = NULL;
 SERVICE_LIST
 #undef SERVICE
 
+// 声明服务模块名称表
+#define SERVICE(service,callback,priority,stackSize) #service,
+const char * serviceNames[] = {
+SERVICE_LIST
+"UNKNOWN_SERVICE"
+};
+#undef SERVICE
+
 //服务任务句柄表
 osThreadId serviceTaskHandle[serviceNum];
 
