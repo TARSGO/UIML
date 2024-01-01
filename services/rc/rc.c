@@ -1,319 +1,338 @@
+#include "cmsis_os.h"
 #include "config.h"
 #include "softbus.h"
-#include "cmsis_os.h"
+#include <stdlib.h>
+#include <string.h>
 
 #define KEY_NUM 18
-//X-MACRO
-#define KEY_TPYE \
-	KEY(W) \
-	KEY(S) \
-	KEY(A) \
-	KEY(D) \
-	KEY(Shift) \
-	KEY(Ctrl) \
-	KEY(Q) \
-	KEY(E) \
-	KEY(R) \
-	KEY(F) \
-	KEY(G) \
-	KEY(Z) \
-	KEY(X) \
-	KEY(C) \
-	KEY(V) \
-	KEY(B) \
-	MOUSE_KEY(left) \
-	MOUSE_KEY(right)
+// X-MACRO
+#define KEY_TPYE                                                                                   \
+    KEY(W)                                                                                         \
+    KEY(S)                                                                                         \
+    KEY(A)                                                                                         \
+    KEY(D)                                                                                         \
+    KEY(Shift)                                                                                     \
+    KEY(Ctrl)                                                                                      \
+    KEY(Q)                                                                                         \
+    KEY(E)                                                                                         \
+    KEY(R)                                                                                         \
+    KEY(F)                                                                                         \
+    KEY(G)                                                                                         \
+    KEY(Z)                                                                                         \
+    KEY(X)                                                                                         \
+    KEY(C)                                                                                         \
+    KEY(V)                                                                                         \
+    KEY(B)                                                                                         \
+    MOUSE_KEY(left)                                                                                \
+    MOUSE_KEY(right)
 
-//Ö÷¼ü
-char* keyType[] = {
-	#define KEY(x) #x,
-	#define MOUSE_KEY(x) #x,
-	KEY_TPYE
-	#undef KEY
-	#undef MOUSE_KEY
+// ä¸»é”®
+char *keyType[] = {
+#define KEY(x) #x,
+#define MOUSE_KEY(x) #x,
+    KEY_TPYE
+#undef KEY
+#undef MOUSE_KEY
 };
 
-
-//Ò£¿ØÊı¾İ½á¹¹Ìå
-typedef struct {
-	//Ò¡¸ËÊı¾İ È¡Öµ[-660,660] 
-	int16_t ch1;
-	int16_t ch2;
-	int16_t ch3;
-	int16_t ch4;
-	//×óÓÒ²¦Âë¿ª¹Ø ÉÏ1/ÖĞ3/ÏÂ2 
-	uint8_t left;
-	uint8_t right;
-	//Êó±êĞÅÏ¢ 
-	struct {
-		//ÒÆ¶¯ËÙ¶È 
-		int16_t x;
-		int16_t y;
-		int16_t z;
-		//×óÓÒ¼ü 
-		uint8_t l;
-		uint8_t r;
-	} mouse;
-	//¼üÅÌĞÅÏ¢ 
-	union {
-		uint16_t key_code;//°´¼ü±àÂë 
-		struct {
-			#define KEY(x) uint16_t x : 1;
-			#define MOUSE_KEY(x)
-			KEY_TPYE
-			#undef KEY
-			#undef MOUSE_KEY
-		} bit;//¸÷¸öÎ»´ú±í¶ÔÓ¦µÄ¼üÎ» 
-	} kb;
-	//²¦ÂÖÊı¾İ È¡Öµ[-660,660]
-	int16_t wheel;
-}RC_TypeDef;
-
-//°´¼ü½á¹¹Ìå£¬ÓÃÓÚ¼ÆËã¼üÅÌ/Êó±êµÄ°´¼üÊÂ¼ş
-typedef struct{
-	//ĞèÒªÅäÖÃµÄ²ÎÊı
-	uint16_t clickDelayTime;//°´ÏÂ¶à¾Ã²ÅËãµ¥»÷Ò»´Î
-	uint16_t longPressTime;//°´ÏÂ¶à¾Ã²ÅËã³¤°´
-	
-	//ÓÃÀ´Ê¹ÓÃµÄ²ÎÊı£¬½öÔÚ¶ÔÓ¦Ìõ¼şÓĞĞ§µÄÒ»Ë²¼äÎª1
-	uint8_t isClicked;
-	uint8_t isLongPressed;
-	uint8_t isUp;
-	uint8_t isPressing;
-	
-	//ÖĞ¼ä±äÁ¿
-	uint8_t lastState;//1/0Îª°´ÏÂ/ËÉ¿ª
-	uint32_t startPressTime;
-}Key;
-typedef struct 
+// é¥æ§æ•°æ®ç»“æ„ä½“
+typedef struct
 {
-	RC_TypeDef rcInfo;//Ò£¿ØÆ÷Êı¾İ
-	Key keyList[KEY_NUM];//°´¼üÁĞ±í(°üº¬ËùÓĞ¿ÉÓÃ¼üÅÌ°´¼üºÍÊó±ê×óÓÒ¼ü)
-	uint8_t uartX;
-}RC;
+    // æ‘‡æ†æ•°æ® å–å€¼[-660,660]
+    int16_t ch1;
+    int16_t ch2;
+    int16_t ch3;
+    int16_t ch4;
+    // å·¦å³æ‹¨ç å¼€å…³ ä¸Š1/ä¸­3/ä¸‹2
+    uint8_t left;
+    uint8_t right;
+    // é¼ æ ‡ä¿¡æ¯
+    struct
+    {
+        // ç§»åŠ¨é€Ÿåº¦
+        int16_t x;
+        int16_t y;
+        int16_t z;
+        // å·¦å³é”®
+        uint8_t l;
+        uint8_t r;
+    } mouse;
+    // é”®ç›˜ä¿¡æ¯
+    union {
+        uint16_t key_code; // æŒ‰é”®ç¼–ç 
+        struct
+        {
+#define KEY(x) uint16_t x : 1;
+#define MOUSE_KEY(x)
+            KEY_TPYE
+#undef KEY
+#undef MOUSE_KEY
+        } bit; // å„ä¸ªä½ä»£è¡¨å¯¹åº”çš„é”®ä½
+    } kb;
+    // æ‹¨è½®æ•°æ® å–å€¼[-660,660]
+    int16_t wheel;
+} RC_TypeDef;
 
-//ÄÚ²¿º¯Êı
-//³õÊ¼»¯ÅĞ¶¨Ê±¼ä
-void RC_InitKeys(RC* rc);
-void RC_InitKeyJudgeTime(RC* rc, uint32_t key,uint16_t clickDelay,uint16_t longPressDelay);
+// æŒ‰é”®ç»“æ„ä½“ï¼Œç”¨äºè®¡ç®—é”®ç›˜/é¼ æ ‡çš„æŒ‰é”®äº‹ä»¶
+typedef struct
+{
+    // éœ€è¦é…ç½®çš„å‚æ•°
+    uint16_t clickDelayTime; // æŒ‰ä¸‹å¤šä¹…æ‰ç®—å•å‡»ä¸€æ¬¡
+    uint16_t longPressTime;  // æŒ‰ä¸‹å¤šä¹…æ‰ç®—é•¿æŒ‰
+
+    // ç”¨æ¥ä½¿ç”¨çš„å‚æ•°ï¼Œä»…åœ¨å¯¹åº”æ¡ä»¶æœ‰æ•ˆçš„ä¸€ç¬é—´ä¸º1
+    uint8_t isClicked;
+    uint8_t isLongPressed;
+    uint8_t isUp;
+    uint8_t isPressing;
+
+    // ä¸­é—´å˜é‡
+    uint8_t lastState; // 1/0ä¸ºæŒ‰ä¸‹/æ¾å¼€
+    uint32_t startPressTime;
+} Key;
+typedef struct
+{
+    RC_TypeDef rcInfo;    // é¥æ§å™¨æ•°æ®
+    Key keyList[KEY_NUM]; // æŒ‰é”®åˆ—è¡¨(åŒ…å«æ‰€æœ‰å¯ç”¨é”®ç›˜æŒ‰é”®å’Œé¼ æ ‡å·¦å³é”®)
+    uint8_t uartX;
+    uint16_t stickDeadzone; // æ†é‡æ­»åŒºå¤§å°
+} RC;
+
+// å†…éƒ¨å‡½æ•°
+// åˆå§‹åŒ–åˆ¤å®šæ—¶é—´
+void RC_InitKeys(RC *rc);
+void RC_InitKeyJudgeTime(RC *rc, uint32_t key, uint16_t clickDelay, uint16_t longPressDelay);
 void RC_PublishData(RC *rc);
-void RC_UpdateKeys(RC* rc);
-void RC_ParseData(RC* rc, uint8_t* buff);
-void RC_SoftBusCallback(const char* name, SoftBusFrame* frame, void* bindData);
+void RC_UpdateKeys(RC *rc);
+void RC_ParseData(RC *rc, uint8_t *buff);
+void RC_SoftBusCallback(const char *name, SoftBusFrame *frame, void *bindData);
 
-void RC_TaskCallback(void const * argument)
+static RC *GlobalRC; // è°ƒè¯•ç”¨
+
+void RC_TaskCallback(void const *argument)
 {
-	//½øÈëÁÙ½çÇø
-	portENTER_CRITICAL();
-	RC rc={0};
-	rc.uartX = Conf_GetValue((ConfItem*)argument, "uart-x", uint8_t, 0);
-	RC_InitKeys(&rc);
-	char name[] = "/uart_/recv";
-	name[5] = rc.uartX + '0';
-	Bus_RegisterReceiver(&rc, RC_SoftBusCallback, name);
-	portEXIT_CRITICAL();
-	
-	osDelay(2000);
-	while(1)
-	{
-		RC_PublishData(&rc);
-		osDelay(14);
-	}
+    // è¿›å…¥ä¸´ç•ŒåŒº
+    portENTER_CRITICAL();
+    RC rc = {0};
+    rc.uartX = Conf_GetValue((ConfItem *)argument, "uart-x", uint8_t, 0);
+    rc.stickDeadzone = Conf_GetValue((ConfItem *)argument, "stick-deadzone", uint16_t, 5);
+    RC_InitKeys(&rc);
+    char name[] = "/uart_/recv";
+    name[5] = rc.uartX + '0';
+    Bus_SubscribeTopic(&rc, RC_SoftBusCallback, name);
+    portEXIT_CRITICAL();
+
+    GlobalRC = &rc;
+
+    osDelay(2000);
+    while (1)
+    {
+        RC_PublishData(&rc);
+        osDelay(14);
+    }
 }
 
-//³õÊ¼»¯ËùÓĞ°´¼üµÄÅĞ¶¨Ê±¼ä
-void RC_InitKeys(RC* rc)
+// åˆå§‹åŒ–æ‰€æœ‰æŒ‰é”®çš„åˆ¤å®šæ—¶é—´
+void RC_InitKeys(RC *rc)
 {
-	//³õÊ¼»¯È«²¿°´¼ü(0x3ffff)
-	RC_InitKeyJudgeTime(rc,0x3ffff,50,500);
+    // åˆå§‹åŒ–å…¨éƒ¨æŒ‰é”®(0x3ffff)
+    RC_InitKeyJudgeTime(rc, 0x3ffff, 50, 500);
 }
 
-//³õÊ¼»¯Ò»¸ö°´¼üµÄÅĞ¶¨Ê±¼ä(¼üÎ»ID£¬µ¥»÷ÅĞ¶¨Ê±¼ä£¬³¤°´ÅĞ¶¨Ê±¼ä)
-void RC_InitKeyJudgeTime(RC* rc, uint32_t key,uint16_t clickDelay,uint16_t longPressDelay)
+// åˆå§‹åŒ–ä¸€ä¸ªæŒ‰é”®çš„åˆ¤å®šæ—¶é—´(é”®ä½IDï¼Œå•å‡»åˆ¤å®šæ—¶é—´ï¼Œé•¿æŒ‰åˆ¤å®šæ—¶é—´)
+void RC_InitKeyJudgeTime(RC *rc, uint32_t key, uint16_t clickDelay, uint16_t longPressDelay)
 {
-	for(uint8_t i=0;i<18;i++)
-	{
-		if(key&(0x01<<i))
-		{
-			rc->keyList[i].clickDelayTime=clickDelay;
-			rc->keyList[i].longPressTime=longPressDelay;
-		}
-	}
+    for (uint8_t i = 0; i < 18; i++)
+    {
+        if (key & (0x01 << i))
+        {
+            rc->keyList[i].clickDelayTime = clickDelay;
+            rc->keyList[i].longPressTime = longPressDelay;
+        }
+    }
 }
 
-
-//ÈôÓĞÊı¾İ¸üĞÂÔò·¢²¼rcÊı¾İ
+// è‹¥æœ‰æ•°æ®æ›´æ–°åˆ™å‘å¸ƒrcæ•°æ®
 void RC_PublishData(RC *rc)
 {
-	static RC_TypeDef lastData={0};
+    static RC_TypeDef lastData = {0};
+    uint16_t deadzone = rc->stickDeadzone;
 
-	if(lastData.ch1 != rc->rcInfo.ch1 || lastData.ch2 != rc->rcInfo.ch2)
-		Bus_BroadcastSend("/rc/right-stick",{{"x",&rc->rcInfo.ch1},{"y",&rc->rcInfo.ch2}}); 
-	
-	if(lastData.ch3 != rc->rcInfo.ch3 || lastData.ch4 != rc->rcInfo.ch4)
-		Bus_BroadcastSend("/rc/left-stick",{{"x",&rc->rcInfo.ch3},{"y",&rc->rcInfo.ch4}});
+    if (abs(lastData.ch1) > deadzone || abs(lastData.ch2) > deadzone)
+    {
+        if (abs(rc->rcInfo.ch1) <= deadzone && abs(rc->rcInfo.ch2) <= deadzone)
+            Bus_PublishTopic("/rc/right-stick", {{"x", {.F32 = 0.0f}}, {"y", {.F32 = 0.0f}}});
+        else
+            Bus_PublishTopic("/rc/right-stick",
+                             {{"x", {.F32 = rc->rcInfo.ch1 / 660.0f}},
+                              {"y", {.F32 = rc->rcInfo.ch2 / 660.0f}}});
+    }
 
-	if(lastData.mouse.x != rc->rcInfo.mouse.x || lastData.mouse.y != rc->rcInfo.mouse.y)
-		Bus_BroadcastSend("/rc/mouse-move",{{"x",&rc->rcInfo.mouse.x},{"y",&rc->rcInfo.mouse.y}});
-	
-	if(lastData.left != rc->rcInfo.left)
-		Bus_BroadcastSend("/rc/switch",{{"left",&rc->rcInfo.left}});
+    if (abs(lastData.ch3) > deadzone || abs(lastData.ch4) > deadzone)
+    {
+        if (abs(rc->rcInfo.ch3) <= deadzone && abs(rc->rcInfo.ch4) <= deadzone)
+            Bus_PublishTopic("/rc/left-stick", {{"x", {.F32 = 0.0f}}, {"y", {.F32 = 0.0f}}});
+        else
+            Bus_PublishTopic("/rc/left-stick",
+                             {{"x", {.F32 = rc->rcInfo.ch3 / 660.0f}},
+                              {"y", {.F32 = rc->rcInfo.ch4 / 660.0f}}});
+    }
 
-	if(lastData.right != rc->rcInfo.right)
-		Bus_BroadcastSend("/rc/switch",{{"right",&rc->rcInfo.right}});
+    if (lastData.mouse.x != rc->rcInfo.mouse.x || lastData.mouse.y != rc->rcInfo.mouse.y)
+        Bus_PublishTopic("/rc/mouse-move",
+                         {{"x", {.U16 = rc->rcInfo.mouse.x}}, {"y", {.U16 = rc->rcInfo.mouse.y}}});
 
-	if(lastData.wheel != rc->rcInfo.wheel)
-		Bus_BroadcastSend("/rc/wheel",{{"value",&rc->rcInfo.wheel}});
-	
-	//¸üĞÂ°´¼ü×´Ì¬²¢·¢²¼
-	RC_UpdateKeys(rc);
+    if (lastData.left != rc->rcInfo.left)
+        Bus_PublishTopic("/rc/switch", {{"left", {.U8 = rc->rcInfo.left}}});
 
-	lastData =rc->rcInfo;
+    if (lastData.right != rc->rcInfo.right)
+        Bus_PublishTopic("/rc/switch", {{"right", {.U8 = rc->rcInfo.right}}});
+
+    if (lastData.wheel != rc->rcInfo.wheel)
+        Bus_PublishTopic("/rc/wheel", {{"value", {.U16 = rc->rcInfo.wheel}}});
+
+    // æ›´æ–°æŒ‰é”®çŠ¶æ€å¹¶å‘å¸ƒ
+    RC_UpdateKeys(rc);
+
+    lastData = rc->rcInfo;
 }
-//¸üĞÂ°´¼ü×´Ì¬£¬ĞèÒª¶¨Ê±µ÷ÓÃ£¬½¨Òé¼ä¸ôÎª14ms
-void RC_UpdateKeys(RC* rc)
+// æ›´æ–°æŒ‰é”®çŠ¶æ€ï¼Œéœ€è¦å®šæ—¶è°ƒç”¨ï¼Œå»ºè®®é—´éš”ä¸º14ms
+void RC_UpdateKeys(RC *rc)
 {
-	static uint32_t lastUpdateTime;
-	uint32_t presentTime=osKernelSysTick();//»ñÈ¡ÏµÍ³Ê±¼ä´Á
-	
-	//¼ì²é×éºÏ¼ü
-	char* combineKey="none";
-	if(rc->rcInfo.kb.bit.Ctrl) combineKey="ctrl";
-	else if(rc->rcInfo.kb.bit.Shift) combineKey="shift";
-	
-	for(uint8_t key=0;key<18;key++)
-	{
-		//¶ÁÈ¡°´¼ü×´Ì¬
-		uint8_t thisState=0;
-		if(key==4||key==5) continue;
-		char name[22] = "/rc/key/";
-		if(key<16) 
-		{
-			thisState=(rc->rcInfo.kb.key_code&(0x01<<key))?1:0;//È¡³ö¼üÅÌ¶ÔÓ¦Î»
-		}
-		else if(key==16) 
-		{
-			thisState=rc->rcInfo.mouse.l;
-		}
-		else if(key==17)
-		{
-			 thisState=rc->rcInfo.mouse.r;
-		}
-		
-		uint16_t lastPressTime=lastUpdateTime-rc->keyList[key].startPressTime;//ÉÏ´Î¸üĞÂÊ±°´ÏÂµÄÊ±¼ä
-		uint16_t pressTime=presentTime-rc->keyList[key].startPressTime;//µ±Ç°°´ÏÂµÄÊ±¼ä
-		
-		//°´¼ü×´Ì¬ÅĞ¶¨
-		/*******°´ÏÂµÄÒ»Ë²¼ä********/
-		if(!rc->keyList[key].lastState && thisState)
-		{
-			rc->keyList[key].startPressTime=presentTime;//¼ÇÂ¼°´ÏÂÊ±¼ä
-			rc->keyList[key].isPressing=1;
-			//·¢²¼topic
-			memcpy(name+8, "on-down", 8);
-			Bus_BroadcastSend(name, {
-				{"key", keyType[key]},
-				{"combine-key", combineKey}
-			});
-		}
-		/*******ËÉ¿ªµÄÒ»Ë²¼ä********/
-		else if(rc->keyList[key].lastState && !thisState)
-		{
-			rc->keyList[key].isLongPressed=0;
-			rc->keyList[key].isPressing=0;
-			
-			//°´¼üÌ§Æğ
-			rc->keyList[key].isUp=1;
-			//·¢²¼topic
-			memcpy(name+8, "on-up", 6);
-			Bus_BroadcastSend(name, {
-				{"key", keyType[key]},
-				{"combine-key", combineKey}
-			});
-				
-			//µ¥»÷ÅĞ¶¨
-			if(pressTime>rc->keyList[key].clickDelayTime && pressTime<rc->keyList[key].longPressTime)
-			{
-				rc->keyList[key].isClicked=1;
-				//·¢²¼topic
-				memcpy(name+8, "on-click", 9);
-				Bus_BroadcastSend(name, {
-					{"key", keyType[key]},
-					{"combine-key", combineKey}
-				});
-			}
-		}
-		/*******°´¼ü³ÖĞø°´ÏÂ********/
-		else if(rc->keyList[key].lastState && thisState)
-		{
-			//Ö´ĞĞÒ»Ö±°´ÏÂµÄÊÂ¼ş»Øµ÷
-			//·¢²¼topic
-			memcpy(name+8, "on-pressing", 12);
-			Bus_BroadcastSend(name, {
-				{"key", keyType[key]},
-				{"combine-key", combineKey}
-			});
-			
-			//³¤°´ÅĞ¶¨
-			if(lastPressTime<=rc->keyList[key].longPressTime && pressTime>rc->keyList[key].longPressTime)
-			{
-				rc->keyList[key].isLongPressed=1;
-				//·¢²¼topic
-				memcpy(name+8, "on-long-press", 14);
-				Bus_BroadcastSend(name, {
-					{"key", keyType[key]},
-					{"combine-key", combineKey}
-				});
-			}
-			else rc->keyList[key].isLongPressed=0;
-		}
-		/*******°´¼ü³ÖĞøËÉ¿ª********/
-		else
-		{
-			rc->keyList[key].isClicked=0;
-			rc->keyList[key].isLongPressed=0;
-			rc->keyList[key].isUp=0;
-		}
-		
-		rc->keyList[key].lastState=thisState;//¼ÇÂ¼°´¼ü×´Ì¬
-	}
-	
-	lastUpdateTime=presentTime;//¼ÇÂ¼¸üĞÂÊÂ¼ş
-}
+    static uint32_t lastUpdateTime;
+    uint32_t presentTime = osKernelSysTick(); // è·å–ç³»ç»Ÿæ—¶é—´æˆ³
 
+    // æ£€æŸ¥ç»„åˆé”®
+    char *combineKey = "none";
+    if (rc->rcInfo.kb.bit.Ctrl)
+        combineKey = "ctrl";
+    else if (rc->rcInfo.kb.bit.Shift)
+        combineKey = "shift";
 
-void RC_SoftBusCallback(const char* name, SoftBusFrame* frame, void* bindData)
-{
-	RC* rc = (RC*)bindData;
-	
-	uint8_t* data = (uint8_t*)Bus_GetListValue(frame, 0);
-	if(data)
-		RC_ParseData(rc, data);
+    for (uint8_t key = 0; key < 18; key++)
+    {
+        // è¯»å–æŒ‰é”®çŠ¶æ€
+        uint8_t thisState = 0;
+        if (key == 4 || key == 5)
+            continue;
+        char name[22] = "/rc/key/";
+        if (key < 16)
+        {
+            thisState = (rc->rcInfo.kb.key_code & (0x01 << key)) ? 1 : 0; // å–å‡ºé”®ç›˜å¯¹åº”ä½
+        }
+        else if (key == 16)
+        {
+            thisState = rc->rcInfo.mouse.l;
+        }
+        else if (key == 17)
+        {
+            thisState = rc->rcInfo.mouse.r;
+        }
+
+        uint16_t lastPressTime =
+            lastUpdateTime - rc->keyList[key].startPressTime; // ä¸Šæ¬¡æ›´æ–°æ—¶æŒ‰ä¸‹çš„æ—¶é—´
+        uint16_t pressTime = presentTime - rc->keyList[key].startPressTime; // å½“å‰æŒ‰ä¸‹çš„æ—¶é—´
+
+        // æŒ‰é”®çŠ¶æ€åˆ¤å®š
+        /*******æŒ‰ä¸‹çš„ä¸€ç¬é—´********/
+        if (!rc->keyList[key].lastState && thisState)
+        {
+            rc->keyList[key].startPressTime = presentTime; // è®°å½•æŒ‰ä¸‹æ—¶é—´
+            rc->keyList[key].isPressing = 1;
+            // å‘å¸ƒtopic
+            memcpy(name + 8, "on-down", 8);
+            Bus_PublishTopic(name, {{"key", keyType[key]}, {"combine-key", combineKey}});
+        }
+        /*******æ¾å¼€çš„ä¸€ç¬é—´********/
+        else if (rc->keyList[key].lastState && !thisState)
+        {
+            rc->keyList[key].isLongPressed = 0;
+            rc->keyList[key].isPressing = 0;
+
+            // æŒ‰é”®æŠ¬èµ·
+            rc->keyList[key].isUp = 1;
+            // å‘å¸ƒtopic
+            memcpy(name + 8, "on-up", 6);
+            Bus_PublishTopic(name, {{"key", keyType[key]}, {"combine-key", combineKey}});
+
+            // å•å‡»åˆ¤å®š
+            if (pressTime > rc->keyList[key].clickDelayTime &&
+                pressTime < rc->keyList[key].longPressTime)
+            {
+                rc->keyList[key].isClicked = 1;
+                // å‘å¸ƒtopic
+                memcpy(name + 8, "on-click", 9);
+                Bus_PublishTopic(name, {{"key", keyType[key]}, {"combine-key", combineKey}});
+            }
+        }
+        /*******æŒ‰é”®æŒç»­æŒ‰ä¸‹********/
+        else if (rc->keyList[key].lastState && thisState)
+        {
+            // æ‰§è¡Œä¸€ç›´æŒ‰ä¸‹çš„äº‹ä»¶å›è°ƒ
+            // å‘å¸ƒtopic
+            memcpy(name + 8, "on-pressing", 12);
+            Bus_PublishTopic(name, {{"key", keyType[key]}, {"combine-key", combineKey}});
+
+            // é•¿æŒ‰åˆ¤å®š
+            if (lastPressTime <= rc->keyList[key].longPressTime &&
+                pressTime > rc->keyList[key].longPressTime)
+            {
+                rc->keyList[key].isLongPressed = 1;
+                // å‘å¸ƒtopic
+                memcpy(name + 8, "on-long-press", 14);
+                Bus_PublishTopic(name, {{"key", keyType[key]}, {"combine-key", combineKey}});
+            }
+            else
+                rc->keyList[key].isLongPressed = 0;
+        }
+        /*******æŒ‰é”®æŒç»­æ¾å¼€********/
+        else
+        {
+            rc->keyList[key].isClicked = 0;
+            rc->keyList[key].isLongPressed = 0;
+            rc->keyList[key].isUp = 0;
+        }
+
+        rc->keyList[key].lastState = thisState; // è®°å½•æŒ‰é”®çŠ¶æ€
+    }
+
+    lastUpdateTime = presentTime; // è®°å½•æ›´æ–°äº‹ä»¶
 }
 
-//½âÎö´®¿ÚÊı¾İ 
-void RC_ParseData(RC* rc, uint8_t* buff)
+void RC_SoftBusCallback(const char *name, SoftBusFrame *frame, void *bindData)
 {
-	rc->rcInfo.ch1 = (buff[0] | buff[1] << 8) & 0x07FF;
-	rc->rcInfo.ch1 -= 1024;
-	rc->rcInfo.ch2 = (buff[1] >> 3 | buff[2] << 5) & 0x07FF;
-	rc->rcInfo.ch2 -= 1024;
-	rc->rcInfo.ch3 = (buff[2] >> 6 | buff[3] << 2 | buff[4] << 10) & 0x07FF;
-	rc->rcInfo.ch3 -= 1024;
-	rc->rcInfo.ch4 = (buff[4] >> 1 | buff[5] << 7) & 0x07FF;
-	rc->rcInfo.ch4 -= 1024;
+    RC *rc = (RC *)bindData;
 
-	rc->rcInfo.left = ((buff[5] >> 4) & 0x000C) >> 2;
-	rc->rcInfo.right = (buff[5] >> 4) & 0x0003;
-	
-	rc->rcInfo.mouse.x = buff[6] | (buff[7] << 8);
-	rc->rcInfo.mouse.y = buff[8] | (buff[9] << 8);
-	rc->rcInfo.mouse.z = buff[10] | (buff[11] << 8);
+    uint8_t *data = (uint8_t *)Bus_GetListValue(frame, 0).Ptr;
+    uint16_t len = Bus_GetListValue(frame, 1).U16;
 
-	rc->rcInfo.mouse.l = buff[12];
-	rc->rcInfo.mouse.r = buff[13];
+    if (data && len)
+        RC_ParseData(rc, data);
+}
 
-	rc->rcInfo.kb.key_code = buff[14] | buff[15] << 8;
+// è§£æä¸²å£æ•°æ®
+void RC_ParseData(RC *rc, uint8_t *buff)
+{
+    rc->rcInfo.ch1 = (buff[0] | buff[1] << 8) & 0x07FF;
+    rc->rcInfo.ch1 -= 1024;
+    rc->rcInfo.ch2 = (buff[1] >> 3 | buff[2] << 5) & 0x07FF;
+    rc->rcInfo.ch2 -= 1024;
+    rc->rcInfo.ch3 = (buff[2] >> 6 | buff[3] << 2 | buff[4] << 10) & 0x07FF;
+    rc->rcInfo.ch3 -= 1024;
+    rc->rcInfo.ch4 = (buff[4] >> 1 | buff[5] << 7) & 0x07FF;
+    rc->rcInfo.ch4 -= 1024;
 
-	rc->rcInfo.wheel = (buff[16] | buff[17] << 8) - 1024;
+    rc->rcInfo.left = ((buff[5] >> 4) & 0x000C) >> 2;
+    rc->rcInfo.right = (buff[5] >> 4) & 0x0003;
+
+    rc->rcInfo.mouse.x = buff[6] | (buff[7] << 8);
+    rc->rcInfo.mouse.y = buff[8] | (buff[9] << 8);
+    rc->rcInfo.mouse.z = buff[10] | (buff[11] << 8);
+
+    rc->rcInfo.mouse.l = buff[12];
+    rc->rcInfo.mouse.r = buff[13];
+
+    rc->rcInfo.kb.key_code = buff[14] | buff[15] << 8;
+
+    rc->rcInfo.wheel = (buff[16] | buff[17] << 8) - 1024;
 }

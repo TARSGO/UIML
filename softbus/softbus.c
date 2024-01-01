@@ -1,296 +1,360 @@
 #include "softbus.h"
-#include "vector.h"
 #include "cmsis_os.h"
+#include "hasher.h"
+#include "vector.h"
 
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define SOFTBUS_MALLOC_PORT(len) pvPortMalloc(len)
 #define SOFTBUS_FREE_PORT(ptr) vPortFree(ptr)
-#define SOFTBUS_MEMCPY_PORT(dst,src,len) memcpy(dst,src,len)
+#define SOFTBUS_MEMCPY_PORT(dst, src, len) memcpy(dst, src, len)
 #define SOFTBUS_STRLEN_PORT(str) strlen(str)
 
-#define SoftBus_Str2Hash(str) SoftBus_Str2Hash_8(str)
+#define SoftBus_Str2Hash(str) Hasher_UIML32((const uint8_t *)(str), strlen((str)))
 
-typedef struct{
-    void* bindData;
-    void* callback;
-}CallbackNode;//»Øµ÷º¯Êı½Úµã
-
-typedef struct{
-    char* name;
-    Vector callbackNodes;
-}ReceiverNode;//receiver½Úµã
-
-typedef struct 
+typedef struct
 {
-	char* name;
-	CallbackNode callbackNode;
-}RemoteNode;//remote½Úµã
+    void *bindData;
+    void *callback;
+} CallbackNode; // å›è°ƒå‡½æ•°èŠ‚ç‚¹
 
-typedef struct{
+typedef struct
+{
+    char *name;
+    Vector callbackNodes;
+} ReceiverNode; // receiverèŠ‚ç‚¹
+
+typedef struct
+{
+    char *name;
+    CallbackNode callbackNode;
+} RemoteNode; // remoteèŠ‚ç‚¹
+
+typedef struct
+{
     uint32_t hash;
     Vector receiverNodes;
-	Vector remoteNodes;
-}HashNode;//hash½Úµã
+    Vector remoteNodes;
+} HashNode; // hashèŠ‚ç‚¹
 
-int8_t Bus_Init(void);//³õÊ¼»¯Èí×ÜÏß,·µ»Ø0:³É¹¦ -1:Ê§°Ü
-uint32_t SoftBus_Str2Hash_8(const char* str);//8Î»´¦ÀíµÄhashº¯Êı£¬ÔÚ×Ö·û´®³¤¶ÈĞ¡ÓÚ20¸ö×Ö·ûÊ±Ê¹ÓÃ
-uint32_t SoftBus_Str2Hash_32(const char* str);//32Î»´¦ÀíµÄhashº¯Êı£¬ÔÚ×Ö·û´®³¤¶ÈĞ¡ÓÚ20¸ö×Ö·ûÊ±Ê¹ÓÃ
-void _Bus_BroadcastSend(const char* name, SoftBusFrame* frame);//·¢²¼ÏûÏ¢
-bool _Bus_RemoteCall(const char* name, SoftBusFrame* frame);//ÇëÇó·şÎñ
-void Bus_EmptyBroadcastReceiver(const char* name, SoftBusFrame* frame, void* bindData);//¿Õ»Øµ÷º¯Êı
-bool Bus_EmptyRemoteFunction(const char* name, SoftBusFrame* frame, void* bindData);//¿Õ»Øµ÷º¯Êı
+int8_t Bus_Init(void);                        // åˆå§‹åŒ–è½¯æ€»çº¿,è¿”å›0:æˆåŠŸ -1:å¤±è´¥
+uint32_t SoftBus_Str2Hash_8(const char *str); // 8ä½å¤„ç†çš„hashå‡½æ•°ï¼Œåœ¨å­—ç¬¦ä¸²é•¿åº¦å°äº20ä¸ªå­—ç¬¦æ—¶ä½¿ç”¨
+uint32_t SoftBus_Str2Hash_32(const char *str); // 32ä½å¤„ç†çš„hashå‡½æ•°ï¼Œåœ¨å­—ç¬¦ä¸²é•¿åº¦å°äº20ä¸ªå­—ç¬¦æ—¶ä½¿ç”¨
+void _Bus_PublishTopic(const char *name, SoftBusFrame *frame);   // å‘å¸ƒæ¶ˆæ¯
+bool _Bus_RemoteFuncCall(const char *name, SoftBusFrame *frame); // è¯·æ±‚æœåŠ¡
+void Bus_EmptyBroadcastReceiver(const char *name,
+                                SoftBusFrame *frame,
+                                void *bindData); // ç©ºå›è°ƒå‡½æ•°
+bool Bus_EmptyRemoteFunction(const char *name, SoftBusFrame *frame, void *bindData); // ç©ºå›è°ƒå‡½æ•°
 
-Vector hashList={0};
-//³õÊ¼»¯hashÊ÷
-int8_t Bus_Init()
+Vector hashList = {0};
+// åˆå§‹åŒ–hashæ ‘
+int8_t Bus_Init() { return Vector_Init(hashList, HashNode); }
+
+int8_t Bus_SubscribeTopic(void *bindData, SoftBusBroadcastReceiver callback, const char *name)
 {
-    return Vector_Init(hashList,HashNode);
+    if (!name || !callback)
+        return -2;
+    if (hashList.data == NULL) // å¦‚æœè½¯æ€»çº¿æœªåˆå§‹åŒ–åˆ™åˆå§‹åŒ–è½¯æ€»çº¿
+    {
+        if (Bus_Init())
+            return -1;
+    }
+    uint32_t hash = SoftBus_Str2Hash(name); // è®¡ç®—å­—ç¬¦ä¸²hashå€¼
+
+    int ret = 0;
+    portENTER_CRITICAL();
+    Vector_ForEach(hashList, hashNode, HashNode) // éå†æ‰€æœ‰hashèŠ‚ç‚¹
+    {
+        if (hash == hashNode->hash)
+        {
+            Vector_ForEach(hashNode->receiverNodes,
+                           receiverNode,
+                           ReceiverNode) // éå†è¯¥hashèŠ‚ç‚¹ä¸‹æ‰€æœ‰receiver
+            {
+                if (strcmp(name, receiverNode->name) == 0) // åŒ¹é…åˆ°å·²æœ‰receiveræ³¨å†Œå›è°ƒå‡½æ•°
+                {
+                    if (Vector_GetFront(receiverNode->callbackNodes, CallbackNode)->callback ==
+                        Bus_EmptyBroadcastReceiver) // å¦‚æœè¯¥receiverä¸‹æœ‰ç©ºå›è°ƒå‡½æ•°
+                    {
+                        CallbackNode *callbackNode =
+                            Vector_GetFront(receiverNode->callbackNodes, CallbackNode);
+                        callbackNode->bindData = bindData; // æ›´æ–°ç»‘å®šæ•°æ®
+                        callbackNode->callback = callback; // æ›´æ–°å›è°ƒå‡½æ•°
+                        ret = 0;
+                        goto Unwrap;
+                    }
+                    ret = Vector_PushBack(receiverNode->callbackNodes,
+                                          ((CallbackNode){bindData, callback}));
+                    goto Unwrap;
+                }
+            }
+            Vector callbackNodes = Vector_Create(
+                CallbackNode); // æœªåŒ¹é…åˆ°receiveräº§ç”Ÿhashå†²çªï¼Œåœ¨è¯¥hashèŠ‚ç‚¹å¤„æ·»åŠ ä¸€ä¸ªreceiverèŠ‚ç‚¹è§£å†³hashå†²çª
+            Vector_PushBack(callbackNodes, ((CallbackNode){bindData, callback}));
+            char *nameCpy = SOFTBUS_MALLOC_PORT(SOFTBUS_STRLEN_PORT(name) +
+                                                1); // é˜²æ­¢nameæ˜¯å±€éƒ¨å˜é‡ï¼Œåˆ†é…ç©ºé—´ä¿å­˜åˆ°hashæ ‘ä¸­
+            SOFTBUS_MEMCPY_PORT(nameCpy, name, SOFTBUS_STRLEN_PORT(name) + 1);
+            ret =
+                Vector_PushBack(hashNode->receiverNodes, ((ReceiverNode){nameCpy, callbackNodes}));
+            goto Unwrap;
+        }
+    }
+    Vector callbackNodes = Vector_Create(CallbackNode); // æ–°çš„hashèŠ‚ç‚¹
+    Vector_PushBack(callbackNodes, ((CallbackNode){bindData, callback}));
+    Vector receiverV = Vector_Create(ReceiverNode);
+    Vector remoteV = Vector_Create(RemoteNode);
+    char *nameCpy = SOFTBUS_MALLOC_PORT(SOFTBUS_STRLEN_PORT(name) + 1);
+    SOFTBUS_MEMCPY_PORT(nameCpy, name, SOFTBUS_STRLEN_PORT(name) + 1);
+    Vector_PushBack(receiverV, ((ReceiverNode){nameCpy, callbackNodes}));
+    Vector_PushBack(remoteV,
+                    ((RemoteNode){nameCpy, ((CallbackNode){NULL, Bus_EmptyRemoteFunction})}));
+    ret = Vector_PushBack(hashList, ((HashNode){hash, receiverV, remoteV}));
+    goto Unwrap;
+
+Unwrap:
+    portEXIT_CRITICAL();
+    return ret;
 }
 
-int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, const char* name)
+int8_t _Bus_SubscribeTopics(void *bindData,
+                            SoftBusBroadcastReceiver callback,
+                            uint16_t namesNum,
+                            const char *const *names)
 {
-	if(!name || !callback)
-		return -2;
-	if(hashList.data == NULL)//Èç¹ûÈí×ÜÏßÎ´³õÊ¼»¯Ôò³õÊ¼»¯Èí×ÜÏß
-	{
-		if(Bus_Init())
-			return -1;
-	}
-	uint32_t hash = SoftBus_Str2Hash(name);//¼ÆËã×Ö·û´®hashÖµ
-	Vector_ForEach(hashList, hashNode, HashNode)//±éÀúËùÓĞhash½Úµã
-	{
-		if(hash == hashNode->hash)
-		{
-			Vector_ForEach(hashNode->receiverNodes, receiverNode, ReceiverNode)//±éÀú¸Ãhash½ÚµãÏÂËùÓĞreceiver
-			{
-				if(strcmp(name, receiverNode->name) == 0)//Æ¥Åäµ½ÒÑÓĞreceiver×¢²á»Øµ÷º¯Êı
-				{
-					if(Vector_GetFront(receiverNode->callbackNodes, CallbackNode)->callback == Bus_EmptyBroadcastReceiver)//Èç¹û¸ÃreceiverÏÂÓĞ¿Õ»Øµ÷º¯Êı
-					{
-						CallbackNode* callbackNode = Vector_GetFront(receiverNode->callbackNodes, CallbackNode);
-						callbackNode->bindData = bindData;//¸üĞÂ°ó¶¨Êı¾İ
-						callbackNode->callback = callback;//¸üĞÂ»Øµ÷º¯Êı
-						return 0;
-					}
-					return Vector_PushBack(receiverNode->callbackNodes, ((CallbackNode){bindData, callback}));
-				}
-			}
-			Vector callbackNodes = Vector_Create(CallbackNode);//Î´Æ¥Åäµ½receiver²úÉúhash³åÍ»£¬ÔÚ¸Ãhash½Úµã´¦Ìí¼ÓÒ»¸öreceiver½Úµã½â¾öhash³åÍ»
-			Vector_PushBack(callbackNodes, ((CallbackNode){bindData, callback}));
-			char* nameCpy = SOFTBUS_MALLOC_PORT(SOFTBUS_STRLEN_PORT(name)+1);//·ÀÖ¹nameÊÇ¾Ö²¿±äÁ¿£¬·ÖÅä¿Õ¼ä±£´æµ½hashÊ÷ÖĞ
-			SOFTBUS_MEMCPY_PORT(nameCpy, name, SOFTBUS_STRLEN_PORT(name)+1);
-			return Vector_PushBack(hashNode->receiverNodes,((ReceiverNode){nameCpy, callbackNodes}));
-		}
-	}
-	Vector callbackNodes = Vector_Create(CallbackNode);//ĞÂµÄhash½Úµã
-	Vector_PushBack(callbackNodes, ((CallbackNode){bindData, callback}));
-	Vector receiverV = Vector_Create(ReceiverNode);
-	Vector remoteV = Vector_Create(RemoteNode);
-	char* nameCpy = SOFTBUS_MALLOC_PORT(SOFTBUS_STRLEN_PORT(name)+1);
-	SOFTBUS_MEMCPY_PORT(nameCpy, name, SOFTBUS_STRLEN_PORT(name)+1);
-	Vector_PushBack(receiverV, ((ReceiverNode){nameCpy, callbackNodes}));
-	Vector_PushBack(remoteV, ((RemoteNode){nameCpy, ((CallbackNode){NULL, Bus_EmptyRemoteFunction})}));
-	return Vector_PushBack(hashList, ((HashNode){hash, receiverV, remoteV}));
+    if (!names || !namesNum || !callback)
+        return -2;
+    for (uint16_t i = 0; i < namesNum; i++)
+    {
+        uint8_t retval = Bus_SubscribeTopic(bindData, callback, names[i]); // é€ä¸ªè®¢é˜…è¯é¢˜
+        if (retval)
+            return retval;
+    }
+    return 0;
 }
 
-int8_t _Bus_MultiRegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, uint16_t namesNum, char** names)
+uint32_t SoftBus_Str2Hash_8(const char *str)
 {
-	if(!names || !namesNum || !callback)
-		return -2;
-	for (uint16_t i = 0; i < namesNum; i++)
-	{
-		uint8_t retval = Bus_RegisterReceiver(bindData, callback, names[i]); //Öğ¸ö¶©ÔÄ»°Ìâ
-		if(retval)
-			return retval;
-	}
-	return 0;
+    uint32_t h = 0;
+    for (uint16_t i = 0; str[i] != '\0'; ++i)
+        h = (h << 5) - h + str[i];
+    return h;
 }
 
-uint32_t SoftBus_Str2Hash_8(const char* str)  
+uint32_t SoftBus_Str2Hash_32(const char *str)
 {
-    uint32_t h = 0;  
-	for(uint16_t i = 0; str[i] != '\0'; ++i)  
-		h = (h << 5) - h + str[i];  
-    return h;  
+    uint32_t h = 0;
+    uint16_t strLength = strlen(str), alignedLen = strLength / sizeof(uint32_t);
+    for (uint16_t i = 0; i < alignedLen; ++i)
+        h = (h << 5) - h + ((uint32_t *)str)[i];
+    for (uint16_t i = alignedLen << 2; i < strLength; ++i)
+        h = (h << 5) - h + str[i];
+    return h;
 }
 
-uint32_t SoftBus_Str2Hash_32(const char* str)  
+void _Bus_PublishTopic(const char *name, SoftBusFrame *frame)
 {
-	uint32_t h = 0;  
-	uint16_t strLength = strlen(str),alignedLen = strLength/sizeof(uint32_t);
-	for(uint16_t i = 0; i < alignedLen; ++i)  
-		h = (h << 5) - h + ((uint32_t*)str)[i]; 
-	for(uint16_t i = alignedLen << 2; i < strLength; ++i)
-		h = (h << 5) - h + str[i]; 
-    return h; 
+    if (!hashList.data || !name || !frame)
+        return;
+    uint32_t hash = SoftBus_Str2Hash(name);
+    Vector_ForEach(hashList, hashNode, HashNode) // éå†æ‰€æœ‰hashèŠ‚ç‚¹
+    {
+        if (hash == hashNode->hash) // åŒ¹é…åˆ°hashå€¼
+        {
+            Vector_ForEach(hashNode->receiverNodes,
+                           receiverNode,
+                           ReceiverNode) // éå†æ”¹hashèŠ‚ç‚¹çš„æ‰€æœ‰receiver
+            {
+                if (strcmp(name, receiverNode->name) ==
+                    0) // åŒ¹é…åˆ°receiverï¼ŒæŠ›å‡ºè¯¥receiveræ‰€æœ‰å›è°ƒå‡½æ•°
+                {
+                    Vector_ForEach(receiverNode->callbackNodes, callbackNode, CallbackNode)
+                    {
+                        (*((SoftBusBroadcastReceiver)
+                               callbackNode->callback))(name, frame, callbackNode->bindData);
+                    }
+                    break;
+                }
+            }
+            break;
+        }
+    }
 }
 
-void _Bus_BroadcastSend(const char* name, SoftBusFrame* frame)
+void _Bus_PublishTopicMap(const char *name, uint16_t itemNum, const SoftBusItemX *items)
 {
-	if(!hashList.data ||!name || !frame)
-		return;
-	uint32_t hash = SoftBus_Str2Hash(name);
-	Vector_ForEach(hashList, hashNode, HashNode)//±éÀúËùÓĞhash½Úµã
-	{
-		if(hash == hashNode->hash)//Æ¥Åäµ½hashÖµ
-		{
-			Vector_ForEach(hashNode->receiverNodes, receiverNode, ReceiverNode)//±éÀú¸Ähash½ÚµãµÄËùÓĞreceiver
-			{
-				if(strcmp(name, receiverNode->name) == 0)//Æ¥Åäµ½receiver£¬Å×³ö¸ÃreceiverËùÓĞ»Øµ÷º¯Êı
-				{
-					Vector_ForEach(receiverNode->callbackNodes, callbackNode, CallbackNode)
-					{
-						(*((SoftBusBroadcastReceiver)callbackNode->callback))(name, frame, callbackNode->bindData);
-					}
-					break;
-				}
-			}
-			break;
-		}
-	}
+    if (!hashList.data || !name || !itemNum || !items)
+        return;
+    SoftBusFrame frame = {items, itemNum};
+    _Bus_PublishTopic(name, &frame);
 }
 
-void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, SoftBusItem* items)
+void _Bus_PublishTopicList(SoftBusReceiverHandle receiverHandle,
+                           uint16_t listNum,
+                           const SoftBusGenericData list[])
 {
-	if(!hashList.data ||!name || !itemNum || !items)
-		return;
-	SoftBusFrame frame = {items, itemNum};
-	_Bus_BroadcastSend(name, &frame);
+    if (!hashList.data || !listNum || !list)
+        return;
+    ReceiverNode *receiverNode = (ReceiverNode *)receiverHandle;
+    SoftBusFrame frame = {list, listNum};
+    Vector_ForEach(receiverNode->callbackNodes,
+                   callbackNode,
+                   CallbackNode) // æŠ›å‡ºè¯¥å¿«é€Ÿå¥æŸ„ä¸‹æ‰€æœ‰å›è°ƒå‡½æ•°
+    {
+        (*((SoftBusBroadcastReceiver)callbackNode->callback))(receiverNode->name,
+                                                              &frame,
+                                                              callbackNode->bindData);
+    }
 }
 
-void _Bus_BroadcastSendList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, void** list)
+SoftBusReceiverHandle Bus_GetFastTopicHandle(const char *name)
 {
-	if(!hashList.data || !listNum || !list)
-		return;
-	ReceiverNode* receiverNode = (ReceiverNode*)receiverHandle;
-	SoftBusFrame frame = {list, listNum};
-	Vector_ForEach(receiverNode->callbackNodes, callbackNode, CallbackNode)//Å×³ö¸Ã¿ìËÙ¾ä±úÏÂËùÓĞ»Øµ÷º¯Êı
-	{
-		(*((SoftBusBroadcastReceiver)callbackNode->callback))(receiverNode->name, &frame, callbackNode->bindData);
-	}
+    if (!name)
+        return NULL;
+    uint32_t hash = SoftBus_Str2Hash(name);      // è®¡ç®—å­—ç¬¦ä¸²hashå€¼
+    Vector_ForEach(hashList, hashNode, HashNode) // éå†æ‰€æœ‰hashèŠ‚ç‚¹
+    {
+        if (hash == hashNode->hash)
+        {
+            Vector_ForEach(hashNode->receiverNodes,
+                           receiverNode,
+                           ReceiverNode) // éå†è¯¥hashèŠ‚ç‚¹ä¸‹æ‰€æœ‰receiver
+            {
+                if (strcmp(name, receiverNode->name) == 0) // åŒ¹é…åˆ°å·²æœ‰receiveræ³¨å†Œå›è°ƒå‡½æ•°
+                {
+                    return receiverNode;
+                }
+            }
+        }
+    }
+    Bus_SubscribeTopic(NULL,
+                       Bus_EmptyBroadcastReceiver,
+                       name);            // æœªåŒ¹é…åˆ°receiver,æ³¨å†Œä¸€ä¸ªç©ºå›è°ƒå‡½æ•°
+    return Bus_GetFastTopicHandle(name); // é€’å½’è°ƒç”¨
 }
 
-SoftBusReceiverHandle Bus_CreateReceiverHandle(const char* name)
+int8_t Bus_RemoteFuncRegister(void *bindData, SoftBusRemoteFunction callback, const char *name)
 {
-	if(!name)
-		return NULL;
-	uint32_t hash = SoftBus_Str2Hash(name);//¼ÆËã×Ö·û´®hashÖµ
-	Vector_ForEach(hashList, hashNode, HashNode)//±éÀúËùÓĞhash½Úµã
-	{
-		if(hash == hashNode->hash)
-		{
-			Vector_ForEach(hashNode->receiverNodes, receiverNode, ReceiverNode)//±éÀú¸Ãhash½ÚµãÏÂËùÓĞreceiver
-			{
-				if(strcmp(name, receiverNode->name) == 0)//Æ¥Åäµ½ÒÑÓĞreceiver×¢²á»Øµ÷º¯Êı
-				{
-					return receiverNode;
-				}
-			}
-		}
-	}
-	Bus_RegisterReceiver(NULL, Bus_EmptyBroadcastReceiver, name);//Î´Æ¥Åäµ½receiver,×¢²áÒ»¸ö¿Õ»Øµ÷º¯Êı
-	return Bus_CreateReceiverHandle(name);//µİ¹éµ÷ÓÃ
+    if (!name || !callback)
+        return -2;
+    if (hashList.data == NULL) // å¦‚æœè½¯æ€»çº¿æœªåˆå§‹åŒ–åˆ™åˆå§‹åŒ–è½¯æ€»çº¿
+    {
+        if (Bus_Init())
+            return -1;
+    }
+    uint32_t hash = SoftBus_Str2Hash(name); // è®¡ç®—å­—ç¬¦ä¸²hashå€¼
+
+    int ret = 0;
+    portENTER_CRITICAL();
+    Vector_ForEach(hashList, hashNode, HashNode) // éå†æ‰€æœ‰hashèŠ‚ç‚¹
+    {
+        if (hash == hashNode->hash)
+        {
+            Vector_ForEach(hashNode->remoteNodes,
+                           remoteNode,
+                           RemoteNode) // éå†è¯¥hashèŠ‚ç‚¹ä¸‹æ‰€æœ‰remote
+            {
+                if (strcmp(name, remoteNode->name) == 0) // åŒ¹é…åˆ°å·²æœ‰remoteæ³¨å†Œå›è°ƒå‡½æ•°
+                {
+                    if (remoteNode->callbackNode.callback ==
+                        Bus_EmptyRemoteFunction) // å¦‚æœè¯¥remoteä¸‹ä¸ºç©ºå›è°ƒå‡½æ•°
+                    {
+                        remoteNode->callbackNode =
+                            ((CallbackNode){bindData, callback}); // æ›´æ–°å›è°ƒå‡½æ•°
+                        ret = 0;
+                        goto Unwrap;
+                    }
+                    ret = -3; // è¯¥æœåŠ¡å·²æ³¨å†Œè¿‡æœåŠ¡å™¨ï¼Œä¸å…è®¸ä¸€ä¸ªæœåŠ¡æœ‰å¤šä¸ªæœåŠ¡å™¨
+                    goto Unwrap;
+                }
+            }
+            CallbackNode callbackNode = {
+                bindData,
+                callback}; // æœªåŒ¹é…åˆ°remoteäº§ç”Ÿhashå†²çªï¼Œåœ¨è¯¥hashèŠ‚ç‚¹å¤„æ·»åŠ ä¸€ä¸ªremoteèŠ‚ç‚¹è§£å†³hashå†²çª
+            char *remoteCpy = SOFTBUS_MALLOC_PORT(SOFTBUS_STRLEN_PORT(name) + 1);
+            SOFTBUS_MEMCPY_PORT(remoteCpy, name, SOFTBUS_STRLEN_PORT(name) + 1);
+            ret = Vector_PushBack(hashNode->remoteNodes, ((RemoteNode){remoteCpy, callbackNode}));
+            goto Unwrap;
+        }
+    }
+
+    Vector remoteV = Vector_Create(RemoteNode); // æ–°çš„hashèŠ‚ç‚¹
+    char *nameCpy = SOFTBUS_MALLOC_PORT(SOFTBUS_STRLEN_PORT(name) + 1);
+    SOFTBUS_MEMCPY_PORT(nameCpy, name, SOFTBUS_STRLEN_PORT(name) + 1);
+    Vector callbackNodes = Vector_Create(CallbackNode);
+    Vector_PushBack(callbackNodes, ((CallbackNode){NULL, Bus_EmptyBroadcastReceiver}));
+    Vector receiverV = Vector_Create(ReceiverNode);
+    Vector_PushBack(receiverV, ((ReceiverNode){nameCpy, callbackNodes}));
+    Vector_PushBack(remoteV, ((RemoteNode){nameCpy, ((CallbackNode){bindData, callback})}));
+    ret = Vector_PushBack(hashList, ((HashNode){hash, receiverV, remoteV}));
+    goto Unwrap;
+
+Unwrap:
+    portEXIT_CRITICAL();
+    return ret;
 }
 
-int8_t Bus_RegisterRemoteFunc(void* bindData, SoftBusRemoteFunction callback, const char* name)
+bool _Bus_RemoteFuncCall(const char *name, SoftBusFrame *frame)
 {
-	if(!name || !callback)
-		return -2;
-	if(hashList.data == NULL)//Èç¹ûÈí×ÜÏßÎ´³õÊ¼»¯Ôò³õÊ¼»¯Èí×ÜÏß
-	{
-		if(Bus_Init())
-			return -1;
-	}
-	uint32_t hash = SoftBus_Str2Hash(name);//¼ÆËã×Ö·û´®hashÖµ
-	Vector_ForEach(hashList, hashNode, HashNode)//±éÀúËùÓĞhash½Úµã
-	{
-		if(hash == hashNode->hash)
-		{
-			Vector_ForEach(hashNode->remoteNodes, remoteNode, RemoteNode)//±éÀú¸Ãhash½ÚµãÏÂËùÓĞremote
-			{
-				if(strcmp(name, remoteNode->name) == 0)//Æ¥Åäµ½ÒÑÓĞremote×¢²á»Øµ÷º¯Êı
-				{
-					if(remoteNode->callbackNode.callback == Bus_EmptyRemoteFunction)//Èç¹û¸ÃremoteÏÂÎª¿Õ»Øµ÷º¯Êı
-					{
-						remoteNode->callbackNode = ((CallbackNode){bindData, callback});//¸üĞÂ»Øµ÷º¯Êı
-						return 0;
-					}
-					return -3; //¸Ã·şÎñÒÑ×¢²á¹ı·şÎñÆ÷£¬²»ÔÊĞíÒ»¸ö·şÎñÓĞ¶à¸ö·şÎñÆ÷
-				}
-			}
-			CallbackNode callbackNode = {bindData, callback};//Î´Æ¥Åäµ½remote²úÉúhash³åÍ»£¬ÔÚ¸Ãhash½Úµã´¦Ìí¼ÓÒ»¸öremote½Úµã½â¾öhash³åÍ»
-			char* remoteCpy = SOFTBUS_MALLOC_PORT(SOFTBUS_STRLEN_PORT(name)+1);
-			SOFTBUS_MEMCPY_PORT(remoteCpy, name, SOFTBUS_STRLEN_PORT(name)+1);
-			return Vector_PushBack(hashNode->remoteNodes,((RemoteNode){remoteCpy, callbackNode}));
-		}
-	}
-
-	Vector remoteV = Vector_Create(RemoteNode);//ĞÂµÄhash½Úµã
-	char* nameCpy = SOFTBUS_MALLOC_PORT(SOFTBUS_STRLEN_PORT(name)+1);
-	SOFTBUS_MEMCPY_PORT(nameCpy, name, SOFTBUS_STRLEN_PORT(name)+1);
-	Vector callbackNodes = Vector_Create(CallbackNode);
-	Vector_PushBack(callbackNodes, ((CallbackNode){NULL, Bus_EmptyBroadcastReceiver}));
-	Vector receiverV = Vector_Create(ReceiverNode);
-	Vector_PushBack(receiverV, ((ReceiverNode){nameCpy, callbackNodes}));
-	Vector_PushBack(remoteV, ((RemoteNode){nameCpy, ((CallbackNode){bindData, callback})}));
-	return Vector_PushBack(hashList, ((HashNode){hash, receiverV, remoteV}));
+    if (!hashList.data || !name || !frame)
+        return false;
+    uint32_t hash = SoftBus_Str2Hash(name);
+    Vector_ForEach(hashList, hashNode, HashNode) // éå†æ‰€æœ‰hashèŠ‚ç‚¹
+    {
+        if (hash == hashNode->hash) // åŒ¹é…åˆ°hashå€¼
+        {
+            Vector_ForEach(hashNode->remoteNodes,
+                           remoteNode,
+                           RemoteNode) // éå†æ”¹hashèŠ‚ç‚¹çš„æ‰€æœ‰remote
+            {
+                if (strcmp(name, remoteNode->name) == 0) // åŒ¹é…åˆ°remoteï¼ŒæŠ›å‡ºè¯¥remoteçš„å›è°ƒå‡½æ•°
+                {
+                    CallbackNode callbackNode = remoteNode->callbackNode;
+                    return (*((SoftBusRemoteFunction)callbackNode.callback))(name,
+                                                                             frame,
+                                                                             callbackNode.bindData);
+                }
+            }
+            return false;
+        }
+    }
+    return false;
 }
 
-bool _Bus_RemoteCall(const char* name, SoftBusFrame* frame)
+bool _Bus_RemoteFuncCallMap(const char *name, uint16_t itemNum, const SoftBusItemX *items)
 {
-	if(!hashList.data ||!name || !frame)
-		return false;
-	uint32_t hash = SoftBus_Str2Hash(name);
-	Vector_ForEach(hashList, hashNode, HashNode)//±éÀúËùÓĞhash½Úµã
-	{
-		if(hash == hashNode->hash)//Æ¥Åäµ½hashÖµ
-		{
-			Vector_ForEach(hashNode->remoteNodes, remoteNode, RemoteNode)//±éÀú¸Ähash½ÚµãµÄËùÓĞremote
-			{
-				if(strcmp(name, remoteNode->name) == 0)//Æ¥Åäµ½remote£¬Å×³ö¸ÃremoteµÄ»Øµ÷º¯Êı
-				{
-					CallbackNode callbackNode = remoteNode->callbackNode;
-					return (*((SoftBusRemoteFunction)callbackNode.callback))(name, frame, callbackNode.bindData);
-				}
-			}
-			return false;
-		}
-	}
-	return false;
+    if (!hashList.data || !name || !itemNum || !items)
+        return false;
+    SoftBusFrame frame = {items, itemNum};
+    return _Bus_RemoteFuncCall(name, &frame);
 }
 
-bool _Bus_RemoteCallMap(const char* name, uint16_t itemNum, SoftBusItem* items)
+uint8_t _Bus_CheckMapKeysExist(SoftBusFrame *frame, uint16_t keysNum, const char *const *keys)
 {
-	if(!hashList.data ||!name || !itemNum || !items)
-		return false;
-	SoftBusFrame frame = {items, itemNum};
-	return _Bus_RemoteCall(name, &frame);
+    if (!frame || !keys || !keysNum)
+        return 0;
+    for (uint16_t i = 0; i < keysNum; ++i)
+    {
+        if (!Bus_GetMapItem(frame, keys[i]))
+            return 0;
+    }
+    return 1;
 }
 
-uint8_t _Bus_CheckMapKeys(SoftBusFrame* frame, uint16_t keysNum, char** keys)
+const SoftBusItemX *Bus_GetMapItem(SoftBusFrame *frame, const char *key)
 {
-	if(!frame || !keys || !keysNum)
-		return 0;
-	for(uint16_t i = 0; i < keysNum; ++i)
-	{
-		if(!Bus_GetMapItem(frame, keys[i]))
-			return 0;
-	}
-	return 1;
+    for (uint16_t i = 0; i < frame->size; ++i)
+    {
+        SoftBusItemX *item = (SoftBusItemX *)frame->data + i;
+        if (strcmp(key, item->key) == 0) // å¦‚æœkeyå€¼ä¸æ•°æ®å¸§ä¸­ç›¸åº”çš„å­—æ®µåŒ¹é…ä¸Šåˆ™è¿”å›å®ƒ
+            return item;
+    }
+    return NULL;
 }
 
-const SoftBusItem* Bus_GetMapItem(SoftBusFrame* frame, char* key)
+void Bus_EmptyBroadcastReceiver(const char *name, SoftBusFrame *frame, void *bindData) {}
+bool Bus_EmptyRemoteFunction(const char *name, SoftBusFrame *frame, void *bindData)
 {
-	for(uint16_t i = 0; i < frame->size; ++i)
-	{
-		SoftBusItem* item = (SoftBusItem*)frame->data + i;
-		if(strcmp(key, item->key) == 0)//Èç¹ûkeyÖµÓëÊı¾İÖ¡ÖĞÏàÓ¦µÄ×Ö¶ÎÆ¥ÅäÉÏÔò·µ»ØËü
-			return item;
-	}
-	return NULL;
+    return false;
 }
-
-void Bus_EmptyBroadcastReceiver(const char* name, SoftBusFrame* frame, void* bindData) { }
-bool Bus_EmptyRemoteFunction(const char* name, SoftBusFrame* frame, void* bindData) {return false;}

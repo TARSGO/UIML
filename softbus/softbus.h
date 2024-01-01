@@ -1,143 +1,234 @@
 #ifndef _SOFTBUS_H_
 #define _SOFTBUS_H_
 
-#include <stdint.h>
-#include <stdbool.h>
-
-typedef struct{
-	void* data;
-	uint16_t size;
-}SoftBusFrame;//Êı¾İÖ¡
-
-typedef struct{
-    char* key;
-	void* data;
-}SoftBusItem;//Êı¾İ×Ö¶Î
-
-#ifndef IM_PTR
-#define IM_PTR(type,...) (&(type){__VA_ARGS__}) //È¡Á¢¼´ÊıµÄµØÖ·
+#ifdef __cplusplus
+#include "softbus_cppapi.h"
 #endif
 
-typedef void* SoftBusReceiverHandle;//Èí×ÜÏß¿ìËÙ¾ä±ú
-typedef void (*SoftBusBroadcastReceiver)(const char* name, SoftBusFrame* frame, void* bindData);//¹ã²¥»Øµ÷º¯ÊıÖ¸Õë
-typedef bool (*SoftBusRemoteFunction)(const char* name, SoftBusFrame* frame, void* bindData);//Ô¶³Ìº¯Êı»Øµ÷º¯ÊıÖ¸Õë
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
-//²Ù×÷º¯ÊıÉùÃ÷(²»Ö±½Óµ÷ÓÃ£¬Ó¦Ê¹ÓÃÏÂ·½define¶¨ÒåµÄ½Ó¿Ú)
-int8_t _Bus_MultiRegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, uint16_t namesNum, char** names);
-void _Bus_BroadcastSendMap(const char* name, uint16_t itemNum, SoftBusItem* items);
-void _Bus_BroadcastSendList(SoftBusReceiverHandle receiverHandle, uint16_t listNum, void** list);
-bool _Bus_RemoteCallMap(const char* name, uint16_t itemNum, SoftBusItem* items);
-uint8_t _Bus_CheckMapKeys(SoftBusFrame* frame, uint16_t keysNum, char** keys);
+#include <stdbool.h>
+#include <stdint.h>
 
-/*
-	@brief ¶©ÔÄÈí×ÜÏßÉÏµÄÒ»¸ö¹ã²¥
-	@param callback:¹ã²¥·¢²¼Ê±µÄ»Øµ÷º¯Êı
-	@param name:¹ã²¥Ãû
-	@retval 0:³É¹¦ -1:¶Ñ¿Õ¼ä²»×ã -2:²ÎÊıÎª¿Õ
-	@note »Øµ÷º¯ÊıµÄĞÎÊ½Ó¦Îªvoid callback(const char* name, SoftBusFrame* frame, void* bindData)
-*/
-int8_t Bus_RegisterReceiver(void* bindData, SoftBusBroadcastReceiver callback, const char* name);
+// MSVC C++ä¸‹ï¼Œä½¿ç”¨(Typename){Structure}ä¼šå¯¼è‡´æŠ¥é”™ã€‚æ­¤è§£å†³æ–¹æ³•æ¥è‡ª
+// https://github.com/raysan5/raygui/pull/44/files
+#ifdef __cplusplus
+#define CURLY_INIT(name) name
+#else
+#define CURLY_INIT(name) (name)
+#endif
 
-/*
-	@brief ¶©ÔÄÈí×ÜÏßÉÏµÄ¶à¸ö¹ã²¥
-	@param bindData:°ó¶¨Êı¾İ
-	@param callback:¹ã²¥·¢²¼Ê±µÄ»Øµ÷º¯Êı
-	@param ...:¹ã²¥×Ö·û´®ÁĞ±í
-	@retval 0:³É¹¦ -1:¶Ñ¿Õ¼ä²»×ã -2:²ÎÊıÎª¿Õ
-	@example Bus_MultiRegisterReceiver(NULL, callback, {"name1", "name2"});
-*/
-#define Bus_MultiRegisterReceiver(bindData, callback,...) _Bus_MultiRegisterReceiver((bindData),(callback),(sizeof((char*[])__VA_ARGS__)/sizeof(char*)),((char*[])__VA_ARGS__))
+typedef struct _SoftBusFrame
+{
+    const void *data;
+    uint16_t size;
+} SoftBusFrame; // æ•°æ®å¸§
 
-/*
-	@brief ¹ã²¥Ó³Éä±íÊı¾İÖ¡
-	@param name:¹ã²¥Ãû
-	@param ...:Ó³Éä±í
-	@retval void
-	@example Bus_BroadcastSend("name", {{"key1", data1}, {"key2", data2}});
-*/
-#define Bus_BroadcastSend(name,...) _Bus_BroadcastSendMap((name),(sizeof((SoftBusItem[])__VA_ARGS__)/sizeof(SoftBusItem)),((SoftBusItem[])__VA_ARGS__))
+typedef struct
+{
+    char *key;
+    void *data;
+} SoftBusItem; // æ•°æ®å­—æ®µ
 
-/*
-	@brief Í¨¹ı¿ìËÙ¾ä±ú¹ã²¥ÁĞ±íÊı¾İÖ¡
-	@param handle:¿ìËÙ¾ä±ú
-	@param ...:Êı¾İÖ¸ÕëÁĞ±í
-	@retval void
-	@example float value1,value2; Bus_FastBroadcastSend(handle, {&value1, &value2});
-*/
-#define Bus_FastBroadcastSend(handle,...) _Bus_BroadcastSendList((handle),(sizeof((void*[])__VA_ARGS__)/sizeof(void*)),((void*[])__VA_ARGS__))
+typedef union _SoftBusGenericData {
+    void *Ptr;
+    const char *Str;
+    uint32_t U32;
+    uint16_t U16;
+    uint8_t U8;
+    int32_t I32;
+    int16_t I16;
+    int8_t I8;
+    float F32;
+    bool Bool;
+    struct _SoftBusItemX *Child;
+} SoftBusGenericData;
 
-/*
-	@brief ´´½¨Èí×ÜÏßÉÏµÄÒ»¸öÔ¶³Ìº¯Êı
-	@param callback:ÏìÓ¦Ô¶³Ìº¯ÊıÊ±µÄ»Øµ÷º¯Êı
-	@param name:Ô¶³Ìº¯ÊıÃû
-	@retval 0:³É¹¦ -1:¶Ñ¿Õ¼ä²»×ã -2:²ÎÊıÎª¿Õ -3:Ô¶³Ìº¯ÊıÒÑ´æÔÚ
-	@note »Øµ÷º¯ÊıµÄĞÎÊ½Ó¦Îªbool callback(const char* name, SoftBusFrame* frame, void* bindData)
-*/
-int8_t Bus_RegisterRemoteFunc(void* bindData, SoftBusRemoteFunction callback, const char* name);
+typedef struct _SoftBusItemX
+{
+    const char *key;
+    SoftBusGenericData data; // å­—é•¿ä»¥å†…çš„æ•°æ®å‡å¯ä»¥ç›´æ¥æŒ‡å®š
+} SoftBusItemX;
 
-/*
-	@brief Í¨¹ıÓ³Éä±íÊı¾İÖ¡µ÷ÓÃÔ¶³Ìº¯Êı
-	@param name:Ô¶³Ìº¯ÊıÃû
-	@param ...:Ô¶³Ìº¯Êı²ÎÊıÁĞ±í(°üº¬²ÎÊıºÍ·µ»ØÖµ)
-	@retval true:³É¹¦ false:Ê§°Ü
-	@example Bus_RemoteCall("name", {{"key1", data1}, {"key2", data2}});
-*/
-#define Bus_RemoteCall(name,...) _Bus_RemoteCallMap((name),(sizeof((SoftBusItem[])__VA_ARGS__)/sizeof(SoftBusItem)),((SoftBusItem[])__VA_ARGS__))
+#ifndef IM_PTR
+// #define IM_PTR(type,...) (&(type){__VA_ARGS__}) //å–ç«‹å³æ•°çš„åœ°å€
+#endif
 
-/*
-	@brief ²éÕÒÓ³Éä±íÊı¾İÖ¡ÖĞµÄÊı¾İ×Ö¶Î
-	@param frame:Êı¾İÖ¡µÄÖ¸Õë
-	@param key:Êı¾İ×Ö¶ÎµÄÃû×Ö
-	@retval Ö¸ÏòÖ¸¶¨Êı¾İ×Ö¶ÎµÄconstÖ¸Õë,Èô²éÑ¯²»µ½keyÔò·µ»ØNULL
-	@note ²»Ó¦¶Ô·µ»ØµÄÊı¾İÖ¡½øĞĞĞŞ¸Ä
-*/
-const SoftBusItem* Bus_GetMapItem(SoftBusFrame* frame, char* key);
+typedef void *SoftBusReceiverHandle; // è½¯æ€»çº¿å¿«é€Ÿå¥æŸ„
+typedef void (*SoftBusBroadcastReceiver)(const char *name,
+                                         SoftBusFrame *frame,
+                                         void *bindData); // å¹¿æ’­å›è°ƒå‡½æ•°æŒ‡é’ˆ
+typedef bool (*SoftBusRemoteFunction)(const char *name,
+                                      SoftBusFrame *frame,
+                                      void *bindData); // è¿œç¨‹å‡½æ•°å›è°ƒå‡½æ•°æŒ‡é’ˆ
 
-/*
-	@brief ÅĞ¶ÏÓ³Éä±íÊı¾İÖ¡ÖĞÊÇ·ñ´æÔÚÖ¸¶¨×Ö¶Î
-	@param frame:Êı¾İÖ¡µÄÖ¸Õë
-	@param key:Êı¾İ×Ö¶ÎµÄÃû×Ö
-	@retval 0:²»´æÔÚ 1:´æÔÚ
-*/
-#define Bus_IsMapKeyExist(frame,key) (Bus_GetMapItem((frame),(key)) != NULL)
+// å®šä¹‰å‡½æ•°ä½¿ç”¨çš„ä¾¿åˆ©å®
+#define BUS_REMOTEFUNC(func_name)                                                                  \
+    bool func_name(const char *name, SoftBusFrame *frame, void *bindData)
+#define BUS_TOPICENDPOINT(func_name)                                                               \
+    void func_name(const char *name, SoftBusFrame *frame, void *bindData)
 
-/*
-	@brief ÅĞ¶Ï¸ø¶¨keyÁĞ±íÊÇ·ñÈ«²¿´æÔÚÓÚÓ³Éä±íÊı¾İÖ¡ÖĞ
-	@param frame:Êı¾İÖ¡µÄÖ¸Õë
-	@param ...:ÒªÅĞ¶ÏµÄkeyÁĞ±í
-	@retval 0:ÈÎÒâÒ»¸ökey²»´æÔÚ 1:ËùÓĞkey¶¼´æÔÚ
-	@example if(Bus_CheckMapKeys(frame, {"key1", "key2", "key3"})) { ... }
-*/
-#define Bus_CheckMapKeys(frame,...) _Bus_CheckMapKeys((frame),(sizeof((char*[])__VA_ARGS__)/sizeof(char*)),((char*[])__VA_ARGS__))
+// å›è°ƒå‡½æ•°å†…ä½¿ç”¨çš„ä¾¿åˆ©å®
+// è½¬æ¢ bindData ä¸ºæŒ‡å®šç±»å‹çš„ self æŒ‡é’ˆ
+#define U_S(ClazzName) ClazzName *self = (ClazzName *)bindData
+
+// æ“ä½œå‡½æ•°å£°æ˜(ä¸ç›´æ¥è°ƒç”¨ï¼Œåº”ä½¿ç”¨ä¸‹æ–¹defineå®šä¹‰çš„æ¥å£)
+int8_t _Bus_SubscribeTopics(void *bindData,
+                            SoftBusBroadcastReceiver callback,
+                            uint16_t namesNum,
+                            const char *const *names);
+void _Bus_PublishTopicMap(const char *name, uint16_t itemNum, const SoftBusItemX *items);
+void _Bus_PublishTopicList(SoftBusReceiverHandle receiverHandle,
+                           uint16_t listNum,
+                           const SoftBusGenericData list[]);
+bool _Bus_RemoteFuncCallMap(const char *name, uint16_t itemNum, const SoftBusItemX *items);
+uint8_t _Bus_CheckMapKeysExist(SoftBusFrame *frame, uint16_t keysNum, const char *const *keys);
 
 /*
-	@brief »ñÈ¡Ó³Éä±íÊı¾İÖ¡ÖĞÖ¸¶¨×Ö¶ÎµÄÖµ
-	@param frame:Êı¾İÖ¡µÄÖ¸Õë
-	@param key:Êı¾İ×Ö¶ÎµÄÃû×Ö
-	@retval Ö¸ÏòÖµµÄ(void*)ĞÍÖ¸Õë
-	@note ±ØĞëÈ·±£´«ÈëµÄkey´æÔÚÓÚÊı¾İÖ¡ÖĞ£¬Ó¦ÏÈÓÃÏà¹Ø½Ó¿Ú½øĞĞ¼ì²é
-	@note ²»Ó¦Í¨¹ı·µ»ØµÄÖ¸ÕëĞŞ¸ÄÖ¸ÏòµÄÊı¾İ
-	@example float value = *(float*)Bus_GetMapValue(frame, "key");
+    @brief è®¢é˜…è½¯æ€»çº¿ä¸Šçš„ä¸€ä¸ªå¹¿æ’­
+    @param callback:å¹¿æ’­å‘å¸ƒæ—¶çš„å›è°ƒå‡½æ•°
+    @param name:å¹¿æ’­å
+    @retval 0:æˆåŠŸ -1:å †ç©ºé—´ä¸è¶³ -2:å‚æ•°ä¸ºç©º
+    @note å›è°ƒå‡½æ•°çš„å½¢å¼åº”ä¸ºvoid callback(const char* name, SoftBusFrame* frame, void* bindData)
 */
-#define Bus_GetMapValue(frame,key) (Bus_GetMapItem((frame),(key))->data)
+int8_t Bus_SubscribeTopic(void *bindData, SoftBusBroadcastReceiver callback, const char *name);
 
 /*
-	@brief Í¨¹ı¹ã²¥Ãû´´½¨¿ìËÙ¹ã²¥¾ä±ú
-	@param name:¹ã²¥Ãû
-	@retval ´´½¨³öµÄ¿ìËÙ¾ä±ú
-	@example SoftBusReceiverHandle handle = Bus_CreateReceiverHandle("name");
-	@note Ó¦½öÔÚ³ÌĞò³õÊ¼»¯Ê±´´½¨Ò»´Î£¬¶ø²»ÊÇÃ¿´Î·¢²¼Ç°´´½¨
+    @brief è®¢é˜…è½¯æ€»çº¿ä¸Šçš„å¤šä¸ªå¹¿æ’­
+    @param bindData:ç»‘å®šæ•°æ®
+    @param callback:å¹¿æ’­å‘å¸ƒæ—¶çš„å›è°ƒå‡½æ•°
+    @param ...:å¹¿æ’­åç§°åˆ—è¡¨
+    @retval 0:æˆåŠŸ -1:å †ç©ºé—´ä¸è¶³ -2:å‚æ•°ä¸ºç©º
+    @example Bus_SubscribeTopics(NULL, callback, {"name1", "name2"});
 */
-SoftBusReceiverHandle Bus_CreateReceiverHandle(const char* name);
+#ifndef __cplusplus
+#define Bus_SubscribeTopics(bindData, callback, ...)                                               \
+    _Bus_SubscribeTopics((bindData),                                                               \
+                         (callback),                                                               \
+                         (sizeof(CURLY_INIT(char *[]) __VA_ARGS__) / sizeof(char *)),              \
+                         (CURLY_INIT(char *[]) __VA_ARGS__))
+#endif
 
 /*
-	@brief »ñÈ¡ÁĞ±íÊı¾İÖ¡ÖĞÖ¸¶¨Ë÷ÒıµÄÊı¾İ
-	@param frame:Êı¾İÖ¡µÄÖ¸Õë
-	@param pos:Êı¾İÔÚÁĞ±íÖĞµÄÎ»ÖÃ
-	@retval Ö¸ÏòÊı¾İµÄ(void*)ĞÍÖ¸Õë£¬Èô²»´æÔÚÔò·µ»ØNULL
-	@note ²»Ó¦Í¨¹ı·µ»ØµÄÖ¸ÕëĞŞ¸ÄÖ¸ÏòµÄÊı¾İ
-	@example float value = *(float*)Bus_GetListValue(frame, 0); //»ñÈ¡ÁĞ±íÖĞµÚÒ»¸öÖµ
+    @brief å¹¿æ’­æ˜ å°„è¡¨æ•°æ®å¸§
+    @param name:å¹¿æ’­å
+    @param ...:æ˜ å°„è¡¨
+    @retval void
+    @example Bus_PublishTopic("name", {{"key1", {data1}}, {"key2", {data2}}});
 */
-#define Bus_GetListValue(frame,pos) (((pos) < (frame)->size)?((void**)(frame)->data)[(pos)]:NULL)
+#ifndef __cplusplus
+#define Bus_PublishTopic(name, ...)                                                                \
+    _Bus_PublishTopicMap((name),                                                                   \
+                         (sizeof((SoftBusItemX[])__VA_ARGS__) / sizeof(SoftBusItemX)),             \
+                         ((SoftBusItemX[])__VA_ARGS__))
+#endif
+
+/*
+    @brief é€šè¿‡å¿«é€Ÿå¥æŸ„å¹¿æ’­åˆ—è¡¨æ•°æ®å¸§
+    @param handle:å¿«é€Ÿå¥æŸ„
+    @param ...:æ•°æ®æŒ‡é’ˆåˆ—è¡¨
+    @retval void
+    @example float value1,value2; Bus_PublishTopicFast(handle, {{.F32 = value1}, {.F32 = value2}});
+*/
+#ifndef __cplusplus
+#define Bus_PublishTopicFast(handle, ...)                                                          \
+    _Bus_PublishTopicList((handle),                                                                \
+                          (sizeof((SoftBusGenericData[])__VA_ARGS__) /                             \
+                           sizeof(SoftBusGenericData)),                                            \
+                          ((SoftBusGenericData[])__VA_ARGS__))
+#endif
+
+/*
+    @brief åˆ›å»ºè½¯æ€»çº¿ä¸Šçš„ä¸€ä¸ªè¿œç¨‹å‡½æ•°
+    @param callback:å“åº”è¿œç¨‹å‡½æ•°æ—¶çš„å›è°ƒå‡½æ•°
+    @param name:è¿œç¨‹å‡½æ•°å
+    @retval 0:æˆåŠŸ -1:å †ç©ºé—´ä¸è¶³ -2:å‚æ•°ä¸ºç©º -3:è¿œç¨‹å‡½æ•°å·²å­˜åœ¨
+    @note å›è°ƒå‡½æ•°çš„å½¢å¼åº”ä¸ºbool callback(const char* name, SoftBusFrame* frame, void* bindData)
+*/
+int8_t Bus_RemoteFuncRegister(void *bindData, SoftBusRemoteFunction callback, const char *name);
+
+/*
+    @brief é€šè¿‡æ˜ å°„è¡¨æ•°æ®å¸§è°ƒç”¨è¿œç¨‹å‡½æ•°
+    @param name:è¿œç¨‹å‡½æ•°å
+    @param ...:è¿œç¨‹å‡½æ•°å‚æ•°åˆ—è¡¨(åŒ…å«å‚æ•°å’Œè¿”å›å€¼)
+    @retval true:æˆåŠŸ false:å¤±è´¥
+    @example Bus_RemoteFuncCall("name", {{"key1", {data1}}, {"key2", {data2}}});
+*/
+#ifndef __cplusplus
+#define Bus_RemoteFuncCall(name, ...)                                                              \
+    _Bus_RemoteFuncCallMap((name),                                                                 \
+                           (sizeof(__VA_ARGS__) / sizeof(SoftBusItemX)),                           \
+                           (CURLY_INIT(SoftBusItemX[]) __VA_ARGS__))
+#endif
+
+/*
+    @brief æŸ¥æ‰¾æ˜ å°„è¡¨æ•°æ®å¸§ä¸­çš„æ•°æ®å­—æ®µ
+    @param frame:æ•°æ®å¸§çš„æŒ‡é’ˆ
+    @param key:æ•°æ®å­—æ®µçš„åå­—
+    @retval æŒ‡å‘æŒ‡å®šæ•°æ®å­—æ®µçš„constæŒ‡é’ˆ,è‹¥æŸ¥è¯¢ä¸åˆ°keyåˆ™è¿”å›NULL
+    @note ä¸åº”å¯¹è¿”å›çš„æ•°æ®å¸§è¿›è¡Œä¿®æ”¹
+*/
+const SoftBusItemX *Bus_GetMapItem(SoftBusFrame *frame, const char *key);
+
+/*
+    @brief åˆ¤æ–­æ˜ å°„è¡¨æ•°æ®å¸§ä¸­æ˜¯å¦å­˜åœ¨æŒ‡å®šå­—æ®µ
+    @param frame:æ•°æ®å¸§çš„æŒ‡é’ˆ
+    @param key:æ•°æ®å­—æ®µçš„åå­—
+    @retval 0:ä¸å­˜åœ¨ 1:å­˜åœ¨
+*/
+#define Bus_CheckMapKeyExist(frame, key) (Bus_GetMapItem((frame), (key)) != NULL)
+
+/*
+    @brief åˆ¤æ–­ç»™å®škeyåˆ—è¡¨æ˜¯å¦å…¨éƒ¨å­˜åœ¨äºæ˜ å°„è¡¨æ•°æ®å¸§ä¸­
+    @param frame:æ•°æ®å¸§çš„æŒ‡é’ˆ
+    @param ...:è¦åˆ¤æ–­çš„keyåˆ—è¡¨
+    @retval 0:ä»»æ„ä¸€ä¸ªkeyä¸å­˜åœ¨ 1:æ‰€æœ‰keyéƒ½å­˜åœ¨
+    @example if(Bus_CheckMapKeysExist(frame, {"key1", "key2", "key3"})) { ... }
+*/
+#ifndef __cplusplus
+#define Bus_CheckMapKeysExist(frame, ...)                                                          \
+    _Bus_CheckMapKeysExist((frame),                                                                \
+                           (sizeof(CURLY_INIT(char *[]) __VA_ARGS__) / sizeof(char *)),            \
+                           (CURLY_INIT(const char *const[]) __VA_ARGS__))
+#endif
+
+/*
+    @brief è·å–æ˜ å°„è¡¨æ•°æ®å¸§ä¸­æŒ‡å®šå­—æ®µçš„å€¼
+    @param frame:æ•°æ®å¸§çš„æŒ‡é’ˆ
+    @param key:æ•°æ®å­—æ®µçš„åå­—
+    @retval æŒ‡å‘å€¼çš„(void*)å‹æŒ‡é’ˆ
+    @note å¿…é¡»ç¡®ä¿ä¼ å…¥çš„keyå­˜åœ¨äºæ•°æ®å¸§ä¸­ï¼Œåº”å…ˆç”¨ç›¸å…³æ¥å£è¿›è¡Œæ£€æŸ¥
+    @note ä¸åº”é€šè¿‡è¿”å›çš„æŒ‡é’ˆä¿®æ”¹æŒ‡å‘çš„æ•°æ®
+    @example float value = *(float*)Bus_GetMapValue(frame, "key");
+*/
+#define Bus_GetMapValue(frame, key) (Bus_GetMapItem((frame), (key))->data)
+
+/*
+    @brief é€šè¿‡å¹¿æ’­ååˆ›å»ºå¿«é€Ÿå¹¿æ’­å¥æŸ„
+    @param name:å¹¿æ’­å
+    @retval åˆ›å»ºå‡ºçš„å¿«é€Ÿå¥æŸ„
+    @example SoftBusReceiverHandle handle = Bus_GetFastTopicHandle("name");
+    @note åº”ä»…åœ¨ç¨‹åºåˆå§‹åŒ–æ—¶åˆ›å»ºä¸€æ¬¡ï¼Œè€Œä¸æ˜¯æ¯æ¬¡å‘å¸ƒå‰åˆ›å»º
+*/
+SoftBusReceiverHandle Bus_GetFastTopicHandle(const char *name);
+
+/*
+    @brief è·å–åˆ—è¡¨æ•°æ®å¸§ä¸­æŒ‡å®šç´¢å¼•çš„æ•°æ®
+    @param frame:æ•°æ®å¸§çš„æŒ‡é’ˆ
+    @param pos:æ•°æ®åœ¨åˆ—è¡¨ä¸­çš„ä½ç½®
+    @retval åŒ…å«æ•°æ®çš„SoftBusGenericDataè”åˆä½“ï¼Œè‹¥ä¸å­˜åœ¨åˆ™è¿”å›ä¸€ä¸ªç©ºçš„è”åˆä½“
+    @note ä¸åº”é€šè¿‡è¿”å›çš„æŒ‡é’ˆä¿®æ”¹æŒ‡å‘çš„æ•°æ®
+    @example float value = Bus_GetListValue(frame, 0).F32; //è·å–åˆ—è¡¨ä¸­ç¬¬ä¸€ä¸ªå€¼
+*/
+#define Bus_GetListValue(frame, pos)                                                               \
+    (((pos) < (frame)->size) ? (((SoftBusGenericData *)(frame)->data))[(pos)]                      \
+                             : CURLY_INIT(SoftBusGenericData){NULL})
+
+#ifdef __cplusplus
+} // extern "C" {
+#endif
 
 #endif

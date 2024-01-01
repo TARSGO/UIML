@@ -1,251 +1,290 @@
-#include "config.h"
-#include "softbus.h"
-#include "cmsis_os.h"
-
+#include "stm32f4xx_hal.h"
 #include "can.h"
+#include "cmsis_os.h"
+#include "config.h"
+#include "dependency.h"
+#include "softbus.h"
+#include "strict.h"
+#include <string.h>
 
-//CAN¾ä±úĞÅÏ¢
-typedef struct {
-	CAN_HandleTypeDef* hcan;
-	uint8_t number; //canXÖĞµÄX
-	SoftBusReceiverHandle fastHandle;  //¿ìËÙ¹ã²¥¾ä±ú
-}CANInfo;
+// CANå¥æŸ„ä¿¡æ¯
+typedef struct
+{
+    CAN_HandleTypeDef *hcan;
+    uint8_t number;                   // canXä¸­çš„X
+    SoftBusReceiverHandle fastHandle; // å¿«é€Ÿå¹¿æ’­å¥æŸ„
+} CANInfo;
 
-//Ñ­»··¢ËÍ»º³åÇø
-typedef struct {
-	CANInfo* canInfo; //Ö¸ÏòËù°ó¶¨µÄCANInfo
-	uint16_t frameID; //canÖ¡ID
-	uint8_t* data;    //canÖ¡8×Ö½ÚÊı¾İ
-}CANRepeatBuffer;
+// å¾ªç¯å‘é€ç¼“å†²åŒº
+typedef struct
+{
+    CANInfo *canInfo; // æŒ‡å‘æ‰€ç»‘å®šçš„CANInfo
+    uint16_t frameID; // canå¸§ID
+    uint8_t *data;    // canå¸§8å­—èŠ‚æ•°æ®
+} CANRepeatBuffer;
 
-//±¾CAN·şÎñÊı¾İ
-typedef struct {
-	CANInfo* canList; //canÁĞ±í
-	uint8_t canNum;   //canÊıÁ¿
-	CANRepeatBuffer* repeatBuffers; //Ñ­»··¢ËÍ»º³åÇø
-	uint8_t bufferNum; //Ñ­»··¢ËÍ»º³åÇøÊıÁ¿
-	uint8_t initFinished;  //³õÊ¼»¯Íê³É±êÖ¾
-}CANService;
+// æœ¬CANæœåŠ¡æ•°æ®
+typedef struct
+{
+    CANInfo *canList;               // canåˆ—è¡¨
+    uint8_t canNum;                 // canæ•°é‡
+    CANRepeatBuffer *repeatBuffers; // å¾ªç¯å‘é€ç¼“å†²åŒº
+    uint8_t bufferNum;              // å¾ªç¯å‘é€ç¼“å†²åŒºæ•°é‡
+    uint8_t initFinished;           // åˆå§‹åŒ–å®Œæˆæ ‡å¿—
+} CANService;
 
 CANService canService = {0};
-//º¯ÊıÉùÃ÷
-void BSP_CAN_Init(ConfItem* dict);
-void BSP_CAN_InitInfo(CANInfo* info, ConfItem* dict);
-void BSP_CAN_InitHardware(CANInfo* info);
-void BSP_CAN_InitRepeatBuffer(CANRepeatBuffer* buffer, ConfItem* dict);
-bool BSP_CAN_SetBufCallback(const char* name, SoftBusFrame* frame, void* bindData);
-bool BSP_CAN_SendOnceCallback(const char* name, SoftBusFrame* frame, void* bindData);
+// å‡½æ•°å£°æ˜
+void BSP_CAN_Init(ConfItem *dict);
+void BSP_CAN_InitInfo(CANInfo *info, ConfItem *dict);
+void BSP_CAN_InitHardware(CANInfo *info);
+void BSP_CAN_InitRepeatBuffer(CANRepeatBuffer *buffer, ConfItem *dict);
+bool BSP_CAN_SetBufCallback(const char *name, SoftBusFrame *frame, void *bindData);
+bool BSP_CAN_SendOnceCallback(const char *name, SoftBusFrame *frame, void *bindData);
+BUS_REMOTEFUNC(BSP_CAN_FlushRepeatBuffers);
 void BSP_CAN_TimerCallback(void const *argument);
-uint8_t BSP_CAN_SendFrame(CAN_HandleTypeDef* hcan,uint16_t StdId,uint8_t* data);
+uint8_t BSP_CAN_SendFrame(CAN_HandleTypeDef *hcan, uint16_t StdId, uint8_t *data);
 
-//can½ÓÊÕ½áÊøÖĞ¶Ï
+// canæ¥æ”¶ç»“æŸä¸­æ–­
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
-	CAN_RxHeaderTypeDef header;
-	uint8_t rx_data[8];
-	
-	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &header, rx_data);
-	
-	if(!canService.initFinished)
-		return;
-	
-	for(uint8_t i = 0; i < canService.canNum; i++)
-	{
-		CANInfo* canInfo = &canService.canList[i]; 
-		if(hcan == canInfo->hcan) //ÕÒµ½ÖĞ¶Ï»Øµ÷º¯ÊıÖĞ¶ÔÓ¦canÁĞ±íµÄcan
-		{
-			uint16_t frameID = header.StdId;
-			Bus_FastBroadcastSend(canInfo->fastHandle, {&frameID, rx_data}); //¿ìËÙ¹ã²¥·¢²¼Êı¾İ
-			break;
-		}
-	}
+    CAN_RxHeaderTypeDef header;
+    uint8_t rx_data[8];
+
+    HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &header, rx_data);
+
+    if (!canService.initFinished)
+        return;
+
+    for (uint8_t i = 0; i < canService.canNum; i++)
+    {
+        CANInfo *canInfo = &canService.canList[i];
+        if (hcan == canInfo->hcan) // æ‰¾åˆ°ä¸­æ–­å›è°ƒå‡½æ•°ä¸­å¯¹åº”canåˆ—è¡¨çš„can
+        {
+            uint16_t frameID = header.StdId;
+            Bus_PublishTopicFast(canInfo->fastHandle,
+                                 {{.U16 = frameID}, {rx_data}}); // å¿«é€Ÿå¹¿æ’­å‘å¸ƒæ•°æ®
+            break;
+        }
+    }
 }
 
-//canÈÎÎñ»Øµ÷º¯Êı
-void BSP_CAN_TaskCallback(void const * argument)
+// canä»»åŠ¡å›è°ƒå‡½æ•°
+void BSP_CAN_TaskCallback(void const *argument)
 {
-	//½øÈëÁÙ½çÇø
-	portENTER_CRITICAL();
-	BSP_CAN_Init((ConfItem*)argument);
-	portEXIT_CRITICAL();
-	
-	vTaskDelete(NULL);
+    // è¿›å…¥ä¸´ç•ŒåŒº
+    // portENTER_CRITICAL();
+    BSP_CAN_Init((ConfItem *)argument);
+    // portEXIT_CRITICAL();
+
+    Depends_SignalFinished(svc_can);
+
+    vTaskDelete(NULL);
 }
 
-void BSP_CAN_Init(ConfItem* dict)
+void BSP_CAN_Init(ConfItem *dict)
 {
-	//¼ÆËãÓÃ»§ÅäÖÃµÄcanÊıÁ¿
-	canService.canNum = 0;
-	for(uint8_t num = 0; ; num++)
-	{
-		char confName[] = "cans/_";
-		confName[5] = num + '0';
-		if(Conf_ItemExist(dict, confName))
-			canService.canNum++;
-		else
-			break;
-	}
-	//³õÊ¼»¯¸÷canĞÅÏ¢
-	canService.canList = pvPortMalloc(canService.canNum * sizeof(CANInfo));
-	for(uint8_t num = 0; num < canService.canNum; num++)
-	{
-		char confName[] = "cans/_";
-		confName[5] = num + '0';
-		BSP_CAN_InitInfo(&canService.canList[num], Conf_GetPtr(dict, confName, ConfItem));
-	}
-	//³õÊ¼»¯CANÓ²¼ş²ÎÊı
-	for(uint8_t num = 0; num < canService.canNum; num++)
-	{
-		BSP_CAN_InitHardware(&canService.canList[num]);
-	}
-	//¼ÆËãÓÃ»§ÅäÖÃµÄÑ­»··¢ËÍ»º³åÇøÊıÁ¿
-	canService.bufferNum = 0;
-	for(uint8_t num = 0; ; num++)
-	{
-		char confName[] = "repeat-buffers/_";
-		confName[15] = num + '0';
-		if(Conf_ItemExist(dict, confName))
-			canService.bufferNum++;
-		else
-			break;
-	}
-	//³õÊ¼»¯¸÷Ñ­»·»º³åÇø
-	canService.repeatBuffers = pvPortMalloc(canService.bufferNum * sizeof(CANRepeatBuffer));
-	for(uint8_t num = 0; num < canService.bufferNum; num++)
-	{
-		char confName[] = "repeat-buffers/_";
-		confName[15] = num + '0';
-		BSP_CAN_InitRepeatBuffer(&canService.repeatBuffers[num], Conf_GetPtr(dict, confName, ConfItem));
-	}
-	//¶©ÔÄ¹ã²¥
-	Bus_RegisterRemoteFunc(NULL, BSP_CAN_SetBufCallback, "/can/set-buf");
-	Bus_RegisterRemoteFunc(NULL, BSP_CAN_SetBufCallback, "/can/send-once");
+    // è®¡ç®—ç”¨æˆ·é…ç½®çš„canæ•°é‡
+    canService.canNum = 0;
+    for (uint8_t num = 0;; num++)
+    {
+        char confName[] = "/cans/_";
+        confName[6] = num + '0';
+        if (Conf_ItemExist(dict, confName))
+            canService.canNum++;
+        else
+            break;
+    }
+    // åˆå§‹åŒ–å„canä¿¡æ¯
+    canService.canList = pvPortMalloc(canService.canNum * sizeof(CANInfo));
+    for (uint8_t num = 0; num < canService.canNum; num++)
+    {
+        char confName[] = "cans/_";
+        confName[5] = num + '0';
+        BSP_CAN_InitInfo(&canService.canList[num], Conf_GetNode(dict, confName));
+    }
+    // åˆå§‹åŒ–CANç¡¬ä»¶å‚æ•°
+    for (uint8_t num = 0; num < canService.canNum; num++)
+    {
+        BSP_CAN_InitHardware(&canService.canList[num]);
+    }
+    // è®¡ç®—ç”¨æˆ·é…ç½®çš„å¾ªç¯å‘é€ç¼“å†²åŒºæ•°é‡
+    canService.bufferNum = 0;
+    for (uint8_t num = 0;; num++)
+    {
+        char confName[] = "repeat-buffers/_";
+        confName[15] = num + '0';
+        if (Conf_ItemExist(dict, confName))
+            canService.bufferNum++;
+        else
+            break;
+    }
+    // åˆå§‹åŒ–å„å¾ªç¯ç¼“å†²åŒº
+    canService.repeatBuffers = pvPortMalloc(canService.bufferNum * sizeof(CANRepeatBuffer));
+    for (uint8_t num = 0; num < canService.bufferNum; num++)
+    {
+        char confName[] = "repeat-buffers/_";
+        confName[15] = num + '0';
+        BSP_CAN_InitRepeatBuffer(&canService.repeatBuffers[num], Conf_GetNode(dict, confName));
+    }
+    // è®¢é˜…å¹¿æ’­
+    Bus_RemoteFuncRegister(NULL, BSP_CAN_SetBufCallback, "/can/set-buf");
+    Bus_RemoteFuncRegister(NULL, BSP_CAN_SetBufCallback, "/can/send-once");
+    Bus_RemoteFuncRegister(NULL, BSP_CAN_FlushRepeatBuffers, "/can/flush-buf");
 
-	canService.initFinished = 1;
+    canService.initFinished = 1;
 }
 
-//³õÊ¼»¯CANĞÅÏ¢
-void BSP_CAN_InitInfo(CANInfo* info, ConfItem* dict)
+// åˆå§‹åŒ–CANä¿¡æ¯
+void BSP_CAN_InitInfo(CANInfo *info, ConfItem *dict)
 {
-	info->hcan = Conf_GetPtr(dict, "hcan", CAN_HandleTypeDef);
-	info->number = Conf_GetValue(dict, "number", uint8_t, 0);
-	char name[] = "/can_/recv";
-	name[4] = info->number + '0';
-	info->fastHandle = Bus_CreateReceiverHandle(name);
+    info->number = Conf_GetValue(dict, "number", uint8_t, 0);
+
+    char canName[] = "can_";
+    canName[3] = info->number + '0';
+    info->hcan = Conf_GetPeriphHandle(canName, CAN_HandleTypeDef);
+    UIML_FATAL_ASSERT(info->hcan != NULL, "Missing CAN Device")
+
+    char name[] = "/can_/recv";
+    name[4] = info->number + '0';
+    info->fastHandle = Bus_GetFastTopicHandle(name);
 }
 
-//³õÊ¼»¯Ó²¼ş²ÎÊı
-void BSP_CAN_InitHardware(CANInfo* info)
+// åˆå§‹åŒ–ç¡¬ä»¶å‚æ•°
+void BSP_CAN_InitHardware(CANInfo *info)
 {
-	//CAN¹ıÂËÆ÷³õÊ¼»¯
-	CAN_FilterTypeDef canFilter = {0};
-	canFilter.FilterActivation = ENABLE;
-	canFilter.FilterMode = CAN_FILTERMODE_IDMASK;
-	canFilter.FilterScale = CAN_FILTERSCALE_32BIT;
-	canFilter.FilterIdHigh = 0x0000;
-	canFilter.FilterIdLow = 0x0000;
-	canFilter.FilterMaskIdHigh = 0x0000;
-	canFilter.FilterMaskIdLow = 0x0000;
-	canFilter.FilterFIFOAssignment = CAN_RX_FIFO0;
-	if(info->number != 1)
-	{
-		canFilter.SlaveStartFilterBank=14;
-		canFilter.FilterBank = 14;
-	}
-	else
-	{
-		canFilter.FilterBank = 0;
-	}
-	HAL_CAN_ConfigFilter(info->hcan, &canFilter);
-	//¿ªÆôCAN
-	HAL_CAN_Start(info->hcan);
-	HAL_CAN_ActivateNotification(info->hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
+    // CANè¿‡æ»¤å™¨åˆå§‹åŒ–
+    CAN_FilterTypeDef canFilter = {0};
+    canFilter.FilterActivation = ENABLE;
+    canFilter.FilterMode = CAN_FILTERMODE_IDMASK;
+    canFilter.FilterScale = CAN_FILTERSCALE_32BIT;
+    canFilter.FilterIdHigh = 0x0000;
+    canFilter.FilterIdLow = 0x0000;
+    canFilter.FilterMaskIdHigh = 0x0000;
+    canFilter.FilterMaskIdLow = 0x0000;
+    canFilter.FilterFIFOAssignment = CAN_RX_FIFO0;
+    if (info->number != 1)
+    {
+        canFilter.SlaveStartFilterBank = 14;
+        canFilter.FilterBank = 14;
+    }
+    else
+    {
+        canFilter.FilterBank = 0;
+    }
+    HAL_CAN_ConfigFilter(info->hcan, &canFilter);
+    // å¼€å¯CAN
+    HAL_CAN_Start(info->hcan);
+    HAL_CAN_ActivateNotification(info->hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
 }
 
-//³õÊ¼»¯Ñ­»··¢ËÍ»º³åÇø
-void BSP_CAN_InitRepeatBuffer(CANRepeatBuffer* buffer, ConfItem* dict)
+// åˆå§‹åŒ–å¾ªç¯å‘é€ç¼“å†²åŒº
+void BSP_CAN_InitRepeatBuffer(CANRepeatBuffer *buffer, ConfItem *dict)
 {
-	//ÖØ¸´Ö¡°ó¶¨can
-	uint8_t canX = Conf_GetValue(dict, "can-x", uint8_t, 0);
-	for(uint8_t i = 0; i < canService.canNum; ++i)
-		if(canService.canList[i].number == canX)
-			buffer->canInfo = &canService.canList[i];
-	//ÉèÖÃÖØ¸´Ö¡canµÄidÓò
-	buffer->frameID = Conf_GetValue(dict, "id", uint16_t, 0x00);
-	buffer->data = pvPortMalloc(8);
-	memset(buffer->data, 0, 8);
-	//¿ªÆôÈí¼ş¶¨Ê±Æ÷¶¨Ê±·¢ËÍÖØ¸´Ö¡
-	uint16_t sendInterval = Conf_GetValue(dict, "interval", uint16_t, 100);
-	osTimerDef(CAN, BSP_CAN_TimerCallback);
-	osTimerStart(osTimerCreate(osTimer(CAN), osTimerPeriodic, buffer), sendInterval);
+    // é‡å¤å¸§ç»‘å®šcan
+    uint8_t canX = Conf_GetValue(dict, "can-x", uint8_t, 0);
+    for (uint8_t i = 0; i < canService.canNum; ++i)
+        if (canService.canList[i].number == canX)
+            buffer->canInfo = &canService.canList[i];
+    // è®¾ç½®é‡å¤å¸§cançš„idåŸŸ
+    buffer->frameID = Conf_GetValue(dict, "id", uint16_t, 0x00);
+    buffer->data = pvPortMalloc(8);
+    memset(buffer->data, 0, 8);
+    // å¼€å¯è½¯ä»¶å®šæ—¶å™¨å®šæ—¶å‘é€é‡å¤å¸§
+    uint16_t sendInterval = Conf_GetValue(dict, "interval", uint16_t, 100);
+    osTimerDef(CAN, BSP_CAN_TimerCallback);
+    osTimerStart(osTimerCreate(osTimer(CAN), osTimerPeriodic, buffer), sendInterval);
 }
 
-//ÏµÍ³¶¨Ê±Æ÷»Øµ÷
+// ç³»ç»Ÿå®šæ—¶å™¨å›è°ƒ
 void BSP_CAN_TimerCallback(void const *argument)
 {
-	if(!canService.initFinished)
-		return;
-	CANRepeatBuffer* buffer = pvTimerGetTimerID((TimerHandle_t)argument); 
-	BSP_CAN_SendFrame(buffer->canInfo->hcan, buffer->frameID, buffer->data);
+    if (!canService.initFinished)
+        return;
+    CANRepeatBuffer *buffer = pvTimerGetTimerID((TimerHandle_t)argument);
+    BSP_CAN_SendFrame(buffer->canInfo->hcan, buffer->frameID, buffer->data);
 }
 
-//CAN·¢ËÍÊı¾İÖ¡
-uint8_t BSP_CAN_SendFrame(CAN_HandleTypeDef* hcan,uint16_t stdId,uint8_t* data)
+// CANå‘é€æ•°æ®å¸§
+uint8_t BSP_CAN_SendFrame(CAN_HandleTypeDef *hcan, uint16_t stdId, uint8_t *data)
 {
-	CAN_TxHeaderTypeDef txHeader;
-	uint32_t canTxMailBox;
+    CAN_TxHeaderTypeDef txHeader;
+    uint32_t canTxMailBox;
 
-	txHeader.StdId = stdId;
-	txHeader.IDE   = CAN_ID_STD;
-	txHeader.RTR   = CAN_RTR_DATA;
-	txHeader.DLC   = 8;
-	
-	uint8_t retVal=HAL_CAN_AddTxMessage(hcan, &txHeader, data, &canTxMailBox);
+    txHeader.StdId = stdId;
+    txHeader.IDE = CAN_ID_STD;
+    txHeader.RTR = CAN_RTR_DATA;
+    txHeader.DLC = 8;
 
-	return retVal;
+    uint8_t retVal = HAL_CAN_AddTxMessage(hcan, &txHeader, data, &canTxMailBox);
+
+    return retVal;
 }
 
-//ÉèÖÃÑ­»·»º´æÇøÄ³²¿·Ö×Ö½ÚÊı¾İÔ¶³Ìº¯Êı»Øµ÷
-bool BSP_CAN_SetBufCallback(const char* name, SoftBusFrame* frame, void* bindData)
+// è®¾ç½®å¾ªç¯ç¼“å­˜åŒºæŸéƒ¨åˆ†å­—èŠ‚æ•°æ®è¿œç¨‹å‡½æ•°å›è°ƒ
+bool BSP_CAN_SetBufCallback(const char *name, SoftBusFrame *frame, void *bindData)
 {
-	if(!Bus_CheckMapKeys(frame, {"can-x", "id", "pos", "len", "data"}))
-		return false;
-	
-	uint8_t canX = *(uint8_t*)Bus_GetMapValue(frame, "can-x");
-	uint16_t frameID = *(uint16_t*)Bus_GetMapValue(frame, "id");
-	uint8_t startIndex = *(uint8_t*)Bus_GetMapValue(frame, "pos");
-	uint8_t length = *(uint8_t*)Bus_GetMapValue(frame, "len");
-	uint8_t* data = (uint8_t*)Bus_GetMapValue(frame, "data");
-	
-	for(uint8_t i = 0; i < canService.bufferNum; i++)
-	{
-		CANRepeatBuffer* buffer = &canService.repeatBuffers[i];
-		if(buffer->canInfo->number == canX && buffer->frameID == frameID)
-		{
-			memcpy(buffer->data + startIndex, data, length);
-			return true;
-		}
-	}
-	return false;
+    if (!Bus_CheckMapKeysExist(frame, {"can-x", "id", "pos", "len", "data"}))
+        return false;
+
+    uint8_t canX = Bus_GetMapValue(frame, "can-x").U8;
+    uint16_t frameID = Bus_GetMapValue(frame, "id").U16;
+    uint8_t startIndex = Bus_GetMapValue(frame, "pos").U8;
+    uint8_t length = Bus_GetMapValue(frame, "len").U8;
+    uint8_t *data = (uint8_t *)Bus_GetMapValue(frame, "data").Ptr;
+
+    for (uint8_t i = 0; i < canService.bufferNum; i++)
+    {
+        CANRepeatBuffer *buffer = &canService.repeatBuffers[i];
+        if (buffer->canInfo->number == canX && buffer->frameID == frameID)
+        {
+            memcpy(buffer->data + startIndex, data, length);
+            return true;
+        }
+    }
+    return false;
 }
-//·¢ËÍÒ»Ö¡canÊı¾İÔ¶³Ìº¯Êı»Øµ÷
-bool BSP_CAN_SendOnceCallback(const char* name, SoftBusFrame* frame, void* bindData)
+// å‘é€ä¸€å¸§canæ•°æ®è¿œç¨‹å‡½æ•°å›è°ƒ
+bool BSP_CAN_SendOnceCallback(const char *name, SoftBusFrame *frame, void *bindData)
 {
-	if(!Bus_CheckMapKeys(frame, {"can-x", "id", "data"}))
-		return false;
+    if (!Bus_CheckMapKeysExist(frame, {"can-x", "id", "data"}))
+        return false;
 
-	uint8_t canX = *(uint8_t*)Bus_GetMapValue(frame, "can-x");
-	uint16_t frameID = *(uint16_t*)Bus_GetMapValue(frame, "id");
-	uint8_t* data = (uint8_t*)Bus_GetMapValue(frame, "data");
+    uint8_t canX = Bus_GetMapValue(frame, "can-x").U8;
+    uint16_t frameID = Bus_GetMapValue(frame, "id").U16;
+    uint8_t *data = (uint8_t *)Bus_GetMapValue(frame, "data").Ptr;
 
-	for(uint8_t i = 0; i < canService.canNum; i++)
-	{
-		CANInfo* info = &canService.canList[i];
-		if(info->number == canX)
-		{
-			BSP_CAN_SendFrame(info->hcan, frameID, data);
-			return true;
-		}
-	}
-	return false;
+    for (uint8_t i = 0; i < canService.canNum; i++)
+    {
+        CANInfo *info = &canService.canList[i];
+        if (info->number == canX)
+        {
+            BSP_CAN_SendFrame(info->hcan, frameID, data);
+            return true;
+        }
+    }
+    return false;
+}
+// CANå¾ªç¯ç¼“å†²åŒºç«‹å³Flushï¼ˆå…¨éƒ¨ç¼“å†²åŒºå…¨éƒ¨ç«‹å³å‘å‡ºï¼‰
+BUS_REMOTEFUNC(BSP_CAN_FlushRepeatBuffers)
+{
+    for (size_t i = 0; i < canService.bufferNum; i++)
+    {
+        CANRepeatBuffer *buffer = &canService.repeatBuffers[i];
+
+        uint8_t ret = HAL_ERROR;
+        uint32_t tick = HAL_GetTick();
+
+        // å› ä¸ºåŠ å…¥Flushç¼“å†²åŒºå‡½æ•°çš„åŸæ„æ˜¯æƒ³åœ¨æ€¥åœæ—¶ç«‹å³åœæ­¢æ‰€æœ‰ç”µæœºï¼Œ
+        // æ‰§è¡Œæ—¶æ˜¯ä¸€æ¬¡æŠŠå¥½å‡ ä¸ªç¼“å†²åŒºå…¨Flushæ‰ï¼Œæ‹…å¿ƒä¼šé€ æˆå‘é€é‚®ç®±å µå¡ï¼Œ
+        // æ‰€ä»¥è®¾ç½®äº†å‘ä¸€æ¬¡ç­‰1msï¼Œå¦‚ä¸æˆåŠŸå°±ä¸€ç›´é‡å¤ï¼Œç›´åˆ°5msä»¥åè¿˜ä¸è¡Œå°±æ”¾å¼ƒï¼ˆå°½åŠ›æ€¥åœäº†ï¼‰
+        do
+        {
+            ret = BSP_CAN_SendFrame(buffer->canInfo->hcan, buffer->frameID, buffer->data);
+            if (ret != HAL_OK)
+                HAL_Delay(1);
+        } while ((ret != HAL_OK) && (HAL_GetTick() - tick < 5));
+    }
+
+    return true;
 }

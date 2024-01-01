@@ -1,10 +1,12 @@
+#include "dependency.h"
 #include "softbus.h"
 #include "cmsis_os.h"
 #include "config.h"
 #include "gpio.h"
 #include "stdio.h"
+#include "stm32f407xx.h"
 
-//EXTI GPIOĞÅÏ¢
+//EXTI GPIOä¿¡æ¯
 typedef struct
 {
 	GPIO_TypeDef* gpioX;
@@ -12,43 +14,45 @@ typedef struct
 	SoftBusReceiverHandle fastHandle;
 }EXTIInfo;
 
-//EXTI·şÎñÊı¾İ
+//EXTIæœåŠ¡æ•°æ®
 typedef struct {
 	EXTIInfo extiList[16];
 	uint8_t extiNum;
 	uint8_t initFinished;
 }EXTIService;
 
-//º¯ÊıÉùÃ÷
+//å‡½æ•°å£°æ˜
 void BSP_EXTI_Init(ConfItem* dict);
 void BSP_EXIT_InitInfo(EXTIInfo* info, ConfItem* dict);
 
 EXTIService extiService={0};
 
-//Íâ²¿ÖĞ¶Ï·şÎñº¯Êı
+//å¤–éƒ¨ä¸­æ–­æœåŠ¡å‡½æ•°
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if(!extiService.initFinished)
 		return;  
-	uint8_t pin = 31 - __clz((uint32_t)GPIO_Pin);//Ê¹ÓÃÄÚºËº¯Êı__clz¾ÍËãGPIO_PinÇ°µ¼0µÄ¸öÊı£¬´Ó¶øµÃµ½ÖĞ¶ÏÏßºÅ
+	uint8_t pin = 31 - __CLZ((uint32_t)GPIO_Pin);//ä½¿ç”¨å†…æ ¸å‡½æ•°__clzå°±ç®—GPIO_Pinå‰å¯¼0çš„ä¸ªæ•°ï¼Œä»è€Œå¾—åˆ°ä¸­æ–­çº¿å·
 	EXTIInfo* extiInfo = &extiService.extiList[pin];
 	GPIO_PinState state = HAL_GPIO_ReadPin(extiInfo->gpioX, GPIO_Pin);
-	Bus_FastBroadcastSend(extiInfo->fastHandle,{&state});
+	Bus_PublishTopicFast(extiInfo->fastHandle,{{.U32 = state}});
 }
-//EXTIÈÎÎñ»Øµ÷º¯Êı
+//EXTIä»»åŠ¡å›è°ƒå‡½æ•°
 void BSP_EXTI_TaskCallback(void const * argument)
 {
-	//½øÈëÁÙ½çÇø
+	//è¿›å…¥ä¸´ç•ŒåŒº
 	portENTER_CRITICAL();
 	BSP_EXTI_Init((ConfItem*)argument);
 	portEXIT_CRITICAL();
+
+	Depends_SignalFinished(svc_exti);
 	
 	vTaskDelete(NULL);
 }
-//EXTI³õÊ¼»¯
+//EXTIåˆå§‹åŒ–
 void BSP_EXTI_Init(ConfItem* dict)
 {
-	//¼ÆËãÓÃ»§ÅäÖÃµÄexitÊıÁ¿
+	//è®¡ç®—ç”¨æˆ·é…ç½®çš„exitæ•°é‡
 	extiService.extiNum = 0;
 	for(uint8_t num = 0; ; num++)
 	{
@@ -59,26 +63,28 @@ void BSP_EXTI_Init(ConfItem* dict)
 		else
 			break;
 	}
-	//³õÊ¼»¯¸÷extiĞÅÏ¢
+	//åˆå§‹åŒ–å„extiä¿¡æ¯
 	for(uint8_t num = 0; num < extiService.extiNum; num++)
 	{
 		char confName[9] = {0};
 		sprintf(confName,"extis/%d",num);
-		BSP_EXIT_InitInfo(extiService.extiList, Conf_GetPtr(dict, confName, ConfItem));
+		BSP_EXIT_InitInfo(extiService.extiList, Conf_GetNode(dict, confName));
 	}
 	extiService.initFinished=1;
 }
 
-//³õÊ¼»¯EXTIĞÅÏ¢
+//åˆå§‹åŒ–EXTIä¿¡æ¯
 void BSP_EXIT_InitInfo(EXTIInfo* info, ConfItem* dict)
 {
 	uint8_t pin = Conf_GetValue(dict, "pin-x", uint8_t, 0);
-	info[pin].gpioX = Conf_GetPtr(dict, "gpio-x", GPIO_TypeDef);
+	char gpioName[] = "gpio_";
+	gpioName[5] = Conf_GetValue(dict, "gpio-x", uint8_t, 0) + 'A';
+	info[pin].gpioX = (GPIO_TypeDef*)Conf_GetPeriphHandle(gpioName, GPIO_TypeDef*);
 	char name[12] = {0};
 	sprintf(name,"/exti/pin%d",pin);
-	//ÖØĞÂÓ³ÉäÖÁGPIO_PIN=2^pin
+	//é‡æ–°æ˜ å°„è‡³GPIO_PIN=2^pin
 	info[pin].pin = 1 << pin;
-	info[pin].fastHandle = Bus_CreateReceiverHandle(name);
+	info[pin].fastHandle = Bus_GetFastTopicHandle(name);
 }
 
 
