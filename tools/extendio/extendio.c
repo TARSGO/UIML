@@ -2,6 +2,7 @@
 #include "extendio.h"
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 char *alloc_sprintf(void *(*alloc_method)(size_t), const char *format, ...)
 {
@@ -20,5 +21,15 @@ char *alloc_sprintf(void *(*alloc_method)(size_t), const char *format, ...)
     vsnprintf(ret, length + 1, format, args);
 
     va_end(args);
+    return ret;
+}
+
+char *alloc_strcpy(void *(*alloc_method)(size_t), const char *from)
+{
+    size_t length = strlen(from);
+    char *ret = (char *)alloc_method(length);
+
+    strcpy(ret, from);
+
     return ret;
 }
