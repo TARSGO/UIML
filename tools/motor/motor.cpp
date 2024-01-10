@@ -29,7 +29,7 @@ BasicMotor *BasicMotor::Create(ConfItem *conf)
 
 bool BasicMotor::SetMode(MotorCtrlMode mode)
 {
-    if (m_mode == MOTOR_STOP_MODE)
+    if (m_mode == ModeStop)
         return false;
 
     m_mode = mode;

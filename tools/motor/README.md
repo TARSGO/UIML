@@ -89,8 +89,8 @@ motor->setTarget(motor, 100);
 	Motor* motor = NULL;
 	motor = Motor_Init(dict);
 	motor->changeMode(motor, MOTOR_TORQUE_MODE);//力矩模式
-	motor->changeMode(motor, MOTOR_SPEED_MODE);//速度模式
-	motor->changeMode(motor, MOTOR_ANGLE_MODE);//角度模式
+	motor->changeMode(motor, ModeSpeed);//速度模式
+	motor->changeMode(motor, ModeAngle);//角度模式
 	```
 
 	> 注意：有些类型的电机并不支持所有模式，请以子类说明文档为准
@@ -108,7 +108,7 @@ motor->setTarget(motor, 100);
 	```c
 	Motor* motor = NULL;
 	motor = Motor_Init(dict);
-	motor->changeMode(motor, MOTOR_ANGLE_MODE);//设置为角度模式
+	motor->changeMode(motor, ModeAngle);//设置为角度模式
 	motor->setTarget(motor, 60);//设置输出轴角度60°
 	```
 

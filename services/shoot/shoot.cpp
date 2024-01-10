@@ -33,8 +33,8 @@ class Shooter
 
         // 设置摩擦轮速度模式，拨弹轮角度模式
         for (uint8_t i = 0; i < 2; i++)
-            fricMotors[i]->SetMode(MOTOR_SPEED_MODE);
-        triggerMotor->SetMode(MOTOR_ANGLE_MODE);
+            fricMotors[i]->SetMode(ModeSpeed);
+        triggerMotor->SetMode(ModeAngle);
 
         auto shooterName = Conf["name"].get("shooter");
         configFuncName = alloc_sprintf(pvPortMalloc, "/%s/config", shooterName);

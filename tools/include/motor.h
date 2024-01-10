@@ -13,10 +13,10 @@
 // 模式
 typedef enum __packed
 {
-    MOTOR_TORQUE_MODE,
-    MOTOR_SPEED_MODE,
-    MOTOR_ANGLE_MODE,
-    MOTOR_STOP_MODE
+    ModeTorque,
+    ModeSpeed,
+    ModeAngle,
+    ModeStop
 } MotorCtrlMode;
 
 // （可获取的）数据类型
@@ -33,7 +33,7 @@ enum MotorDataType
 class BasicMotor
 {
   public:
-    BasicMotor() : m_mode(MOTOR_STOP_MODE) { m_feedbackValid = false; }
+    BasicMotor() : m_mode(ModeStop) { m_feedbackValid = false; }
     virtual void Init(ConfItem *conf) = 0;
     virtual bool SetMode(MotorCtrlMode mode) = 0;
     virtual void EmergencyStop() = 0;

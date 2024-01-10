@@ -11,7 +11,7 @@ void DjiCanMotor::Init(ConfItem *dict)
     // 注意：必须设定好减速比与CAN信息
 
     // 默认模式为扭矩模式
-    m_mode = MOTOR_TORQUE_MODE;
+    m_mode = ModeTorque;
 
     // 初始化电机pid
     m_speedPid.Init(Conf["speed-pid"]);
@@ -37,16 +37,16 @@ void DjiCanMotor::Init(ConfItem *dict)
 // 切换电机模式
 bool DjiCanMotor::SetMode(MotorCtrlMode mode)
 {
-    if (m_mode == MOTOR_STOP_MODE) // 急停模式下不允许切换模式
+    if (m_mode == ModeStop) // 急停模式下不允许切换模式
         return false;
 
     m_mode = mode;
     switch (mode)
     {
-    case MOTOR_SPEED_MODE:
+    case ModeSpeed:
         m_speedPid.Clear();
         break;
-    case MOTOR_ANGLE_MODE:
+    case ModeAngle:
         m_anglePid.Clear();
         break;
     default:
@@ -60,7 +60,7 @@ bool DjiCanMotor::SetMode(MotorCtrlMode mode)
 void DjiCanMotor::EmergencyStop()
 {
     m_target = 0;
-    m_mode = MOTOR_STOP_MODE;
+    m_mode = ModeStop;
     CanTransmit(0);
 }
 
@@ -69,13 +69,13 @@ bool DjiCanMotor::SetTarget(float target)
 {
     switch (m_mode)
     {
-    case MOTOR_SPEED_MODE:
+    case ModeSpeed:
         m_target = target * m_reductionRatio;
         break;
-    case MOTOR_ANGLE_MODE:
+    case ModeAngle:
         m_target = DegToCode(target, m_reductionRatio);
         break;
-    case MOTOR_TORQUE_MODE:
+    case ModeTorque:
         m_target = target;
         break;
     default:
@@ -183,16 +183,16 @@ void DjiCanMotor::ControllerUpdate(float target)
     int16_t output = 0;
     switch (m_mode)
     {
-    case MOTOR_SPEED_MODE:
+    case ModeSpeed:
         output = m_speedPid.SingleCalc(target, m_motorSpeed);
         break;
-    case MOTOR_ANGLE_MODE:
+    case ModeAngle:
         output = m_anglePid.CascadeCalc(target, m_totalAngle, m_motorSpeed);
         break;
-    case MOTOR_TORQUE_MODE:
+    case ModeTorque:
         output = (int16_t)target;
         break;
-    case MOTOR_STOP_MODE:
+    case ModeStop:
         return;
     }
 

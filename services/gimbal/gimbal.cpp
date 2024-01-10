@@ -82,8 +82,8 @@ class Gimbal
         motorYaw->SetTotalAngle(AccumulatedDegTo180(yawAngleNow - yawAngleAtZero));
 
         // 外环角度PID在Gimbal任务中，内环速度PID在电机内
-        motorYaw->SetMode(MOTOR_SPEED_MODE);
-        motorPitch->SetMode(MOTOR_SPEED_MODE);
+        motorYaw->SetMode(ModeSpeed);
+        motorPitch->SetMode(ModeSpeed);
 
         // 初始化其他变量
         systemTargetYaw = targetPitch = 0.0f;
@@ -95,8 +95,8 @@ class Gimbal
         disableMode = Conf["disable"].get<uint32_t>(1) != 0;
         if (disableMode)
         {
-            motorYaw->SetMode(MOTOR_STOP_MODE);
-            motorPitch->SetMode(MOTOR_STOP_MODE);
+            motorYaw->SetMode(ModeStop);
+            motorPitch->SetMode(ModeStop);
         }
 
         // 订阅相关事件

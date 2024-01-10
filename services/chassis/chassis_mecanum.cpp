@@ -153,7 +153,7 @@ void Chassis_Init(Chassis *chassis, ConfItem *dict)
     // 设置底盘电机为速度模式
     for (uint8_t i = 0; i < 4; i++)
     {
-        chassis->motors[i]->SetMode(MOTOR_SPEED_MODE);
+        chassis->motors[i]->SetMode(ModeSpeed);
     }
 
     // 软总线广播、远程函数name重映射

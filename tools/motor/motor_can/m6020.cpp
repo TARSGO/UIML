@@ -31,7 +31,7 @@ void M6020::Init(ConfItem *dict)
 
 bool M6020::SetMode(MotorCtrlMode mode)
 {
-    if (mode == MOTOR_TORQUE_MODE)
+    if (mode == ModeTorque)
         return false;
 
     return DjiCanMotor::SetMode(mode);

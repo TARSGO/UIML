@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+// TODO: 遥控器在全回中后才开始发送数据
+// TODO: 选择输入方式的逻辑改成全自动，解放左拨杆
+
 #define KEY_NUM 18
 // X-MACRO
 #define KEY_TPYE                                                                                   \
