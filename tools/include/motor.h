@@ -86,6 +86,8 @@ class CanMotor : public BasicMotor
         uint8_t canX;     // CAN设备号
         uint8_t bufIndex; // TX方向循环缓冲区偏移量
     } m_canInfo;
+
+    void RegisterCanMotor(const char *name); // 将电机注册到Manager
 };
 
 class DummyMotor : public BasicMotor

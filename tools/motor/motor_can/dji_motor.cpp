@@ -10,6 +10,11 @@ void DjiCanMotor::Init(ConfItem *dict)
     // 公共初始化部分
     // 注意：必须设定好减速比与CAN信息
 
+    // 注册CAN电机到管理器
+    auto motorName = Conf["name"].get<const char *>(nullptr);
+    if (motorName != nullptr)
+        RegisterCanMotor(motorName);
+
     // 默认模式为扭矩模式
     m_mode = ModeTorque;
 

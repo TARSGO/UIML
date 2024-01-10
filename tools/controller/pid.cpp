@@ -2,6 +2,8 @@
 
 #include "pid.h"
 #include "config.h"
+#include "managerapi.h"
+#include "softbus.h"
 
 // 默认构造函数
 PID::PID()
@@ -21,16 +23,27 @@ PID::PID(ConfItem *conf)
 // 初始化PID参数
 void PID::Init(ConfItem *conf)
 {
-    kp = Conf_GetValue(conf, "p", float, 0);
-    ki = Conf_GetValue(conf, "i", float, 0);
-    kd = Conf_GetValue(conf, "d", float, 0);
-    maxIntegral = Conf_GetValue(conf, "max-i", float, 0);
-    maxOutput = Conf_GetValue(conf, "max-out", float, 0);
+    U_C(conf);
+    kp = Conf["p"].get(0.0f);
+    ki = Conf["i"].get(0.0f);
+    kd = Conf["d"].get(0.0f);
+    maxIntegral = Conf["max-i"].get(0.0f);
+    maxOutput = Conf["max-out"].get(0.0f);
     deadzone = 0;
     error = 0;
     lastError = 0;
     integral = 0;
     output = 0;
+
+    // 如果PID对象设置了名称就注册到管理器
+    auto name = Conf["name"].get<const char *>(nullptr);
+    if (name != nullptr)
+    {
+        Bus_RemoteFuncCall("/manager/register/pid",
+                           {{"name", {.Str = name}},
+                            {"type", {.U32 = PidSimple}},
+                            {"ptr", {this}}});
+    }
 }
 
 // 单级PID计算
@@ -115,8 +128,20 @@ CascadePID::CascadePID(ConfItem *conf) { Init(conf); }
 // 用配置项初始化内外两环。默认内环配置键名"inner"，外环键名"outer"。
 void CascadePID::Init(ConfItem *conf)
 {
-    inner.Init(Conf_GetNode(conf, "inner"));
-    outer.Init(Conf_GetNode(conf, "outer"));
+    U_C(conf);
+
+    inner.Init(Conf["inner"]);
+    outer.Init(Conf["outer"]);
+
+    // 如果PID对象有名称，注册到管理器
+    auto name = Conf["name"].get<const char *>(nullptr);
+    if (name != nullptr)
+    {
+        Bus_RemoteFuncCall("/manager/register/pid",
+                           {{"name", {.Str = name}},
+                            {"type", {.U32 = PidCascade}},
+                            {"ptr", {this}}});
+    }
 }
 
 // 串级pid计算
