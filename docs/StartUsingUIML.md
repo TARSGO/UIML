@@ -41,7 +41,7 @@
 
    ![复制UIML源码目录](images/复制UIML源码目录.png)
 
-2. 在项目根目录的 CMakeLists.txt 中添加代码来将 UIML 链接到项目中。你需要参考[example/CopyThisToMainProject.cmake](example/CopyThisToMainProject.cmake)中的内容，将其中的代码添加到项目的 CMakeLists.txt 中，并按需更改标注了需要更改的部分。
+2. 在项目根目录的 CMakeLists.txt 中添加代码来将 UIML 链接到项目中。你需要参考[example/CopyThisToMainProject.cmake](../example/CopyThisToMainProject.cmake)中的内容，将其中的代码添加到项目的 CMakeLists.txt 中，并按需更改标注了需要更改的部分。
 
    `target_link_uiml` 函数需要更改的参数：
 
@@ -52,12 +52,12 @@
 
 3. 将以下样例配置文件复制到你的项目的源码目录中，并确保它们被你的项目目标构建（将这些源码文件添加到你的项目的目标中）：
 
-   - [example/config_peripheral.c](example/config_peripheral.c) （外设列表）
-   - [example/config_yaml.cpp](example/config_yaml.cpp) （配置项文件）
+   - [example/config_peripheral.c](../example/config_peripheral.c) （外设列表）
+   - [example/config_yaml.cpp](../example/config_yaml.cpp) （配置项文件）
 
 4. 将以下样例配置文件复制到你的项目的包含目录中：
 
-   - [example/config_services.h](example/config_services.h) （服务列表头文件）
+   - [example/config_services.h](../example/config_services.h) （服务列表头文件）
 
    并将其绝对路径（使用`${CMAKE_SOURCE_DIR}`等拼接）填写到 `target_link_uiml` 函数的 `SERVICE_LIST` 参数处。
 
