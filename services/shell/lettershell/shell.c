@@ -363,16 +363,19 @@ static unsigned short shellWriteCommandDesc(Shell *shell, const char *string)
  */
 static void shellWritePrompt(Shell *shell, unsigned char newline)
 {
+    // UIML INTEGRATION EDITED / UIML 移植后已修改
     if (shell->status.isChecked)
     {
         if (newline)
         {
-            shellWriteString(shell, "\r\n");
+            // shellWriteString(shell, "\r\n");
         }
+        shellWriteString(shell, "\x1b[32;1m"); // Green + Bold
         shellWriteString(shell, shell->info.user->data.user.name);
-        shellWriteString(shell, ":");
+        shellWriteString(shell, "\x1b[0m:"); // Reset, then colon
+        shellWriteString(shell, "\x1b[36m"); // Cyan
         shellWriteString(shell, shell->info.path ? shell->info.path : "/");
-        shellWriteString(shell, "$ ");
+        shellWriteString(shell, "\x1b[0m$ "); // Reset, then prompt
     }
     else
     {
@@ -1338,8 +1341,11 @@ void shellSetUser(Shell *shell, const ShellCommand *user)
  */
 static void shellWriteReturnValue(Shell *shell, int value)
 {
+    // UIML INTEGRATION CHANGED / UIML 移植后修改
     char buffer[12] = "00000000000";
-    shellWriteString(shell, "Return: ");
+    // shellWriteString(shell, "Return: ");
+    shellWriteString(shell, value ? "\x1b[33m" : "\x1b[32m"); // 根据返回值改变颜色，为0绿色，非0黄色
+    shellWriteString(shell, "\r\n[ Returned ");
     shellWriteString(shell, &buffer[11 - shellToDec(value, buffer)]);
     shellWriteString(shell, ", 0x");
     for (short i = 0; i < 11; i++)
@@ -1348,7 +1354,7 @@ static void shellWriteReturnValue(Shell *shell, int value)
     }
     shellToHex(value, buffer);
     shellWriteString(shell, buffer);
-    shellWriteString(shell, "\r\n");
+    shellWriteString(shell, "]\x1b[0m\r\n"); // 复原
 #if SHELL_KEEP_RETURN_VALUE == 1
     shell->info.retVal = value;
 #endif
