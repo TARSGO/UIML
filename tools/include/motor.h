@@ -241,13 +241,15 @@ class DamiaoJ6006 : public CanMotor
     float m_autonomousAngleModeSpeedLimit;
     // 累积角度值（角度）
     float m_totalAngle;
+    // 目标值
+    float m_target;
     // 角度(16位)、速度(12位)、扭矩(12位)
     uint16_t m_motorAngle, m_motorSpeed, m_motorTorque;
     // 驱动温度、线圈温度
     uint8_t m_motorDriverTemp, m_motorCoilTemp;
 
     // 定时器
-    osTimerId_t m_timer;
+    osTimerId m_timer;
 
   private:
     // 尝试解除错误状态

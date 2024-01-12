@@ -88,7 +88,7 @@ motor->setTarget(motor, 100);
 	```c
 	Motor* motor = NULL;
 	motor = Motor_Init(dict);
-	motor->changeMode(motor, MOTOR_TORQUE_MODE);//力矩模式
+	motor->changeMode(motor, ModeTorque);//力矩模式
 	motor->changeMode(motor, ModeSpeed);//速度模式
 	motor->changeMode(motor, ModeAngle);//角度模式
 	```

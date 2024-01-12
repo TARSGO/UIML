@@ -18,7 +18,7 @@ void DamiaoJ6006::Init(ConfItem *dict)
     m_canInfo.canX = Conf["can-x"].get<uint8_t>(0);
 
     // 默认模式为扭矩模式
-    m_mode = MOTOR_TORQUE_MODE;
+    m_mode = ModeTorque;
 
     // 读取电机方向，为1正向为-1反向
     m_direction = Conf["direction"].get<int8_t>(1);
@@ -31,14 +31,14 @@ void DamiaoJ6006::Init(ConfItem *dict)
     Bus_SubscribeTopic(this, DamiaoJ6006::CanRxCallback, name);
 
     m_target = 0.0f;
-    m_stallTime = 0;
+    // m_stallTime = 0;
     m_totalAngle = 0;
 }
 
 // 切换电机模式
 bool DamiaoJ6006::SetMode(MotorCtrlMode mode)
 {
-    if (m_mode == MOTOR_STOP_MODE) // 急停模式下不允许切换模式
+    if (m_mode == ModeStop) // 急停模式下不允许切换模式
         return false;
 
     // J6006可以支持UIML定义的全部三种工作模式，所以不用判断其他的东西
@@ -53,8 +53,8 @@ bool DamiaoJ6006::SetMode(MotorCtrlMode mode)
 void DamiaoJ6006::EmergencyStop()
 {
     m_target = 0;
-    m_mode = MOTOR_STOP_MODE;
-    CanTransmit(0);
+    m_mode = ModeStop;
+    CommandSpeedMode(0);
 }
 
 // 设置电机期望值
@@ -62,15 +62,15 @@ bool DamiaoJ6006::SetTarget(float target)
 {
     switch (m_mode)
     {
-    case MOTOR_SPEED_MODE:
+    case ModeSpeed:
         m_target = target;
         CommandSpeedMode(target);
         break;
-    case MOTOR_ANGLE_MODE:
+    case ModeAngle:
         m_target = target;
         CommandAngleMode(target, m_autonomousAngleModeSpeedLimit);
         break;
-    case MOTOR_TORQUE_MODE:
+    case ModeTorque:
         m_target = target;
         CommandMitMode(0, 0, 0, 0, target);
         break;

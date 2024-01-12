@@ -80,7 +80,7 @@
 
 ### `void EmergencyStop()`
 
-使电机进入急停状态。效果同 `SetMode(MOTOR_STOP_MODE)`。
+使电机进入急停状态。效果同 `SetMode(ModeStop)`。
 
 ## 新增电机
 
@@ -120,7 +120,7 @@ void DjiCanMotor::Init(ConfItem *dict)
     // 注意：必须已经由子类设定好了减速比与CAN信息才能到达这里
 
     // 默认模式为扭矩模式
-    m_mode = MOTOR_TORQUE_MODE;
+    m_mode = ModeTorque;
 
     // 初始化电机pid
     m_speedPid.Init(Conf["speed-pid"]);
