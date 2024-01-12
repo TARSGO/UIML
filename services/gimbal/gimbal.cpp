@@ -151,7 +151,7 @@ class Gimbal
 
 extern "C" void Gimbal_TaskCallback(void const *argument)
 {
-    Depends_WaitFor(svc_gimbal, {svc_can, svc_ins, svc_chassis});
+    Depends_WaitFor(svc_gimbal, {svc_can, svc_ins});
     gimbal.Init((ConfItem *)argument);
     Depends_SignalFinished(svc_gimbal);
 
