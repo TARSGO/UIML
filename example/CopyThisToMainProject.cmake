@@ -4,6 +4,7 @@ include(UIML/Uiml.cmake)
 add_subdirectory(UIML)
 
 # UIML配置项
+set(UIML_ENABLE_GLOBAL_MANAGER ON) # 启用全局管理器与否
 set(UIML_ENABLE_BSP_CAN ON)
 set(UIML_ENABLE_BSP_SPI ON)
 set(UIML_ENABLE_BSP_TIM ON)

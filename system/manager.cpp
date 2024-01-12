@@ -15,7 +15,7 @@ class Manager
 {
   public:
     Manager() {}
-    void Init(ConfItem *conf);
+    void Init();
 
   private:
     struct RegisteredMotor // 注册过的电机
@@ -64,13 +64,14 @@ class Manager
     static BUS_REMOTEFUNC(MotorQueryFuncCallback); // [远程函数]查询所有电机或单个详情
 } manager;
 
-extern "C" void Manager_TaskCallback(void *argument)
+#ifdef UIML_ENABLE_GLOBAL_MANAGER
+extern "C" void Manager_Init()
 {
-    manager.Init((ConfItem *)argument);
-    vTaskDelete(NULL);
+    manager.Init();
 }
+#endif
 
-void Manager::Init(ConfItem *conf)
+void Manager::Init()
 {
     // 初始化动态数组
     Vector_Init(motorRegistry, RegisteredMotor);

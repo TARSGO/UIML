@@ -2,6 +2,7 @@
 #include <cmsis_os.h>
 #include "sys_conf.h"
 #include "dependency.h"
+#include "manager.h"
 #include "yamlparser.h"
 
 ConfItem* systemConfig = NULL;
@@ -30,6 +31,9 @@ void StartDefaultTask(void const * argument)
 
 	// 初始化依赖启动模块
 	Depends_Init();
+
+	// 初始化全局管理器
+	Manager_Init();
 
 	//创建所有服务任务，将配置表分别作为参数传入
 	#define SERVICE(service,callback,priority,stackSize) \

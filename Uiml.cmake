@@ -78,4 +78,10 @@ function(target_link_uiml)
     if(UIML_ENABLE_BSP_GPIO)
         target_compile_definitions(uiml_static PUBLIC "-DUIML_ENABLE_BSP_GPIO")
     endif()
+
+    # 全局管理器选项
+    if(UIML_ENABLE_GLOBAL_MANAGER)
+        message(STATUS "UIML: Global manager enabled")
+        target_compile_definitions(uiml_static PRIVATE "-DUIML_ENABLE_GLOBAL_MANAGER")
+    endif()
 endfunction()
