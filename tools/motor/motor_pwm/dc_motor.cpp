@@ -43,10 +43,18 @@ void DcMotor::TimerInit(ConfItem *dict)
 }
 
 // 开始统计电机累计角度
-bool DcMotor::SetTotalAngle(float startAngle)
+bool DcMotor::SetData(MotorDataType type, float data)
 {
-    m_totalAngle = Degree2Code(startAngle, m_reductionRatio, m_circleEncode);
-    m_lastAngle = startAngle;
+    switch (type)
+    {
+    case TotalAngle:
+        m_totalAngle = Degree2Code(data, m_reductionRatio, m_circleEncode);
+        m_lastAngle = data;
+        return true;
+
+    default:
+        return false;
+    }
 
     return true;
 }

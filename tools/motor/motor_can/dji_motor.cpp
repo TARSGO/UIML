@@ -8,7 +8,7 @@ void DjiCanMotor::Init(ConfItem *dict)
 {
     U_C(dict);
     // 公共初始化部分
-    // 注意：必须设定好减速比与CAN信息
+    // 注意：必须已经由子类设定好了减速比与CAN信息才能到达这里
 
     // 注册CAN电机到管理器
     auto motorName = Conf["name"].get<const char *>(nullptr);
@@ -91,12 +91,18 @@ bool DjiCanMotor::SetTarget(float target)
 }
 
 // 开始统计电机累计角度
-bool DjiCanMotor::SetTotalAngle(float angle)
+bool DjiCanMotor::SetData(MotorDataType type, float data)
 {
-    m_totalAngle = DegToCode(angle, m_reductionRatio);
-    m_lastAngle = m_motorAngle;
+    switch (type)
+    {
+    case TotalAngle:
+        m_totalAngle = DegToCode(data, m_reductionRatio);
+        m_lastAngle = m_motorAngle;
+        return true;
 
-    return true;
+    default:
+        return false;
+    }
 }
 
 // 获取电机数据
@@ -169,7 +175,7 @@ void DjiCanMotor::EmergencyStopCallback(const char *endpoint, SoftBusFrame *fram
 void DjiCanMotor::UpdateAngle()
 {
     int32_t angleDiff = 0;
-    // FIXME: 无注释，逻辑存疑
+    // 计算角度增量（加过零检测）
     if (m_motorAngle - m_lastAngle < -4000)
         angleDiff = m_motorAngle + (8191 - m_lastAngle);
     else if (m_motorAngle - m_lastAngle > 4000)
