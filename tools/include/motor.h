@@ -4,6 +4,7 @@
 #include "config.h"
 #include "pid.h"
 #include "softbus.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,12 +23,26 @@ typedef enum __packed
 // （可获取的）数据类型
 enum MotorDataType
 {
+    // 电机当前的角度反馈值
     CurrentAngle,
+
+    // 电机反馈角度的累积值
     TotalAngle,
+
+    // 电机反馈角度的原始数值
     RawAngle,
+
+    // 电机反馈的速度值
     Speed,
+
+    // 电机反馈的速度值，经过某减速比换算后的值。仅对减速电机有意义
     SpeedReduced,
+
+    // 电机配置的“方向”参数，1为正转，-1为反转。
     Direction,
+
+    // 电机自主进行角度环控制时的速度上限（在DamiaoJ6006中加入）
+    SpeedLimit,
 };
 
 class BasicMotor
@@ -39,7 +54,7 @@ class BasicMotor
     virtual void EmergencyStop() = 0;
 
     virtual bool SetTarget(float target) = 0;
-    virtual bool SetTotalAngle(float angle) = 0;
+    virtual bool SetData(MotorDataType type, float angle) = 0;
     virtual float GetData(MotorDataType type);
 
     /**
@@ -97,7 +112,7 @@ class DummyMotor : public BasicMotor
     virtual void EmergencyStop() override{};
 
     virtual bool SetTarget(float target) override { return false; }
-    virtual bool SetTotalAngle(float angle) override { return false; }
+    virtual bool SetData(MotorDataType type, float angle) override { return false; }
     virtual float GetData(MotorDataType type) override { return 0.0f; }
 };
 
@@ -110,7 +125,7 @@ class DjiCanMotor : public CanMotor
     virtual void EmergencyStop() override;
 
     virtual bool SetTarget(float target) override;
-    virtual bool SetTotalAngle(float angle) override;
+    virtual bool SetData(MotorDataType type, float angle) override;
     virtual float GetData(MotorDataType type) override;
 
     // 各种电机编码值与角度的换算
@@ -199,6 +214,72 @@ class M2006 final : public DjiCanMotor
     virtual void CanRxUpdate(uint8_t *rxData) override;
 };
 
+class DamiaoJ6006 : public CanMotor
+{
+  public:
+    virtual void Init(ConfItem *conf) override;
+    virtual bool SetMode(MotorCtrlMode mode) override;
+    virtual void EmergencyStop() override;
+
+    virtual bool SetTarget(float target) override;
+    virtual bool SetData(MotorDataType type, float angle) override;
+    virtual float GetData(MotorDataType type) override;
+
+  protected:
+    // 编码器与角度换算
+    // *16384/360
+    static inline int32_t DegToCode(float deg) { return (int32_t)(deg * 45.5111f); }
+    static inline float CodeToDeg(int32_t code) { return (float)(code / 45.5111f); }
+    // CAN接收中断回调
+    static void CanRxCallback(const char *endpoint, SoftBusFrame *frame, void *bindData);
+    // 急停回调
+    static void EmergencyStopCallback(const char *endpoint, SoftBusFrame *frame, void *bindData);
+
+    // 电机自主角度环时的速度上限
+    float m_autonomousAngleModeSpeedLimit;
+    // 累积角度值（角度）
+    float m_totalAngle;
+    // 角度(16位)、速度(12位)、扭矩(12位)
+    uint16_t m_motorAngle, m_motorSpeed, m_motorTorque;
+    // 驱动温度、线圈温度
+    uint8_t m_motorDriverTemp, m_motorCoilTemp;
+
+    // 定时器
+    osTimerId_t m_timer;
+
+  private:
+    // 尝试解除错误状态
+    // 因为常见的错误状态是电机过热，所以这里只尝试解除过热错误，温度阈值为60度
+    void AttemptResolveError();
+
+    // 下面的指令属于控制指令
+    // 对电机发送使能/失能指令
+    void CommandEnable(bool enable);
+
+    // 保存位置零点
+    void CommandSetZero();
+
+    // 清除错误标志
+    void CommandClearErrorFlag();
+
+    // 下面的三个命令方式用的是UIML规定的单位制，发送函数封包的时候再转成达妙的弧度或者映射单位
+    // 向MIT模式发送命令，目前只用在了扭矩模式
+    void CommandMitMode(uint16_t targetAngle,
+                        uint16_t targetSpeed,
+                        uint16_t kp,
+                        uint16_t kd,
+                        uint16_t targetTorque);
+
+    // 向角度模式发送命令
+    void CommandAngleMode(float targetAngle, float targetSpeed);
+
+    // 向速度模式发送命令
+    void CommandSpeedMode(float targetSpeed);
+
+    // 发送CAN报文
+    void CanTransmitFrame(uint16_t txId, uint8_t length, uint8_t *data);
+};
+
 class DcMotor : public BasicMotor
 {
   public:
@@ -208,7 +289,7 @@ class DcMotor : public BasicMotor
     virtual void EmergencyStop();
 
     virtual bool SetTarget(float target);
-    virtual bool SetTotalAngle(float angle);
+    virtual bool SetData(MotorDataType type, float angle);
     virtual float GetData(MotorDataType type);
 
     // 编码值与角度的换算（减速比*编码器一圈值/360）
@@ -262,7 +343,7 @@ class Servo : public BasicMotor
     virtual void EmergencyStop() {}
 
     virtual bool SetTarget(float target);
-    virtual bool SetTotalAngle(float angle) { return false; }
+    virtual bool SetData(MotorDataType type, float angle) { return false; }
     virtual float GetData(MotorDataType type) { return 0.0f; }
 
   protected:

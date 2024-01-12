@@ -72,3 +72,36 @@ inline float AccumulatedDegTo180(float deg)
     else
         return deg;
 }
+
+/**
+ * @brief 将角度转为弧度
+ *
+ * @param deg 角度值
+ * @return float 弧度值
+ */
+inline float Degree2Radian(float deg) { return deg * 0.0174532f; }
+
+/**
+ * @brief 将弧度转为角度
+ *
+ * @param rad 弧度值
+ * @return float 角度值
+ */
+
+inline float Radian2Degree(float rad) { return rad * 57.2958f; }
+
+/**
+ * @brief 将RPM转为弧度每秒
+ *
+ * @param rpm RPM值
+ * @return float 弧度每秒值
+ */
+inline float Rpm2Radps(float rpm) { return rpm * 0.10472f; }
+
+/**
+ * @brief 将弧度每秒转为RPM
+ *
+ * @param radps 弧度每秒值
+ * @return float RPM值
+ */
+inline float Radps2Rpm(float radps) { return radps * 9.5493f; }
