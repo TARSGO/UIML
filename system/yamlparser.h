@@ -64,6 +64,7 @@ class UimlYamlNodeObject
 
     UimlYamlNodeObject operator[](const char *childName) const
     {
+        if (!m_node) return nullptr;
         return UimlYamlNodeObject(UimlYamlGetValue(m_node->Children, childName));
     }
 
