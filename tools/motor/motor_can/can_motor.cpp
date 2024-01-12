@@ -6,7 +6,7 @@
 
 void CanMotor::RegisterCanMotor(const char *name)
 {
-    Bus_RemoteFuncCall("/manager/register/motor",
+    Bus_RemoteFuncCall("/manager/motor/register",
                        {{"name", {.Str = name}},
                         {"bus-type", {.U32 = BusCan}},
                         {"bus-id", {.U32 = m_canInfo.canX}},

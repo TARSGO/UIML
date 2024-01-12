@@ -39,7 +39,7 @@ void PID::Init(ConfItem *conf)
     auto name = Conf["name"].get<const char *>(nullptr);
     if (name != nullptr)
     {
-        Bus_RemoteFuncCall("/manager/register/pid",
+        Bus_RemoteFuncCall("/manager/pid/register",
                            {{"name", {.Str = name}},
                             {"type", {.U32 = PidSimple}},
                             {"ptr", {this}}});
@@ -137,7 +137,7 @@ void CascadePID::Init(ConfItem *conf)
     auto name = Conf["name"].get<const char *>(nullptr);
     if (name != nullptr)
     {
-        Bus_RemoteFuncCall("/manager/register/pid",
+        Bus_RemoteFuncCall("/manager/pid/register",
                            {{"name", {.Str = name}},
                             {"type", {.U32 = PidCascade}},
                             {"ptr", {this}}});

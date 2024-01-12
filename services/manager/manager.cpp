@@ -81,9 +81,13 @@ void Manager::Init(ConfItem *conf)
     xSemaphoreGive(managerMutex);
 
     // 连接话题
-    Bus_RemoteFuncRegister(this, RegisterMotorFuncCallback, "/manager/register/motor");
-    Bus_RemoteFuncRegister(this, RegisterPidControllerFuncCallback, "/manager/register/pid");
-    Bus_RemoteFuncRegister(this, PidQueryFuncCallback, "/manager/query/pid");
+    Bus_RemoteFuncRegister(this, RegisterMotorFuncCallback, "/manager/motor/register");
+    Bus_RemoteFuncRegister(this, RegisterPidControllerFuncCallback, "/manager/pid/register");
+
+    Bus_RemoteFuncRegister(this, PidQueryFuncCallback, "/manager/pid/query");
+    Bus_RemoteFuncRegister(this, MotorQueryFuncCallback, "/manager/motor/query");
+
+    Bus_RemoteFuncRegister(this, PidSetParamFuncCallback, "/manager/pid/set");
 }
 
 BUS_REMOTEFUNC(Manager::RegisterPidControllerFuncCallback)
